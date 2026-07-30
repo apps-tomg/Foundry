@@ -93,6 +93,22 @@ async function supabaseRest(cfg, path, options){
   return data;
 }
 
+// Exchanges an Apple identity token for a Supabase session. Uses the same
+// storeSession() shape as email/password sign-in, so everything downstream
+// (supabaseRest, ensureFreshSession, syncEnabled) works unchanged.
+async function syncSignInWithApple(identityToken, rawNonce){
+  const cfg = loadSyncCfg();
+  const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=id_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': cfg.anonKey },
+    body: JSON.stringify({ provider: 'apple', id_token: identityToken, nonce: rawNonce })
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error_description || data.msg || data.error || 'Apple sign-in failed');
+  storeSession(cfg, data);
+  return cfg;
+}
+
 async function syncSignIn(url, anonKey, email, password){
   const cfg = { url: url.replace(/\/+$/, ''), anonKey, email };
   const auth = await supabaseAuth(cfg, 'password', { email, password });

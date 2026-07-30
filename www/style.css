@@ -814,6 +814,18 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
 }
 .welcome-msg{font-size:12px; color:var(--red); min-height:16px; margin-bottom:10px;}
 .welcome-msg.ok{color:var(--good);}
+/* Apple requires this button stay black or white for contrast, never a brand
+   colour. Foundry is dark by default, so white on dark and black on light. */
+.w-apple{
+  width:100%; min-height:50px; border:none; border-radius:var(--radius-md);
+  background:#ffffff; color:#000000;
+  font-family:var(--font-ui); font-size:16px; font-weight:600; letter-spacing:-0.01em;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  cursor:pointer; margin-bottom:10px;
+}
+body.light .w-apple{ background:#000000; color:#ffffff; }
+.w-apple-glyph{ font-size:17px; line-height:1; position:relative; top:-1px; }
+
 .w-primary{
   width:100%; background:var(--accent); color:#fff; border:none; border-radius:14px;
   padding:14px; font-size:15px; font-weight:800; cursor:pointer; font-family:var(--font-ui);

@@ -2263,15 +2263,67 @@ async function welcomeAuth(mode){
   }
 }
 
-document.getElementById('wSignIn').onclick = ()=> welcomeAuth('signin');
-document.getElementById('wSignUp').onclick = ()=> welcomeAuth('signup');
+// Apple embeds the SHA-256 of the nonce we hand it into the identity token;
+// Supabase hashes the raw value itself to compare. So Apple gets the hash and
+// Supabase gets the original string. Getting this backwards is the usual cause
+// of a silent "invalid nonce" rejection.
+function randomNonce(){
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Hex(str){
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+document.getElementById('wApple').onclick = async ()=>{
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  if(!isNative){ welcomeMsg('Sign in with Apple only works inside the iOS app.'); return; }
+  const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple;
+  if(!plugin){ welcomeMsg('Apple sign-in is unavailable in this build.'); return; }
+  try{
+    welcomeMsg('Signing in...');
+    const rawNonce = randomNonce();
+    const result = await plugin.authorize({
+      clientId: 'com.tomgarrett.foundry',
+      redirectURI: '',
+      scopes: 'email name',
+      nonce: await sha256Hex(rawNonce)
+    });
+    const token = result && result.response && result.response.identityToken;
+    if(!token) throw new Error('Apple did not return an identity token');
+    await syncSignInWithApple(token, rawNonce);
+
+    // Apple only ever sends the name on the very first authorisation, so grab
+    // it now if it's there; afterwards it comes back empty forever.
+    const given = result.response.givenName;
+    if(given && !state.settings.firstName){
+      state.settings.firstName = given.slice(0, 20);
+      if(!state.settings.displayName) state.settings.displayName = state.settings.firstName;
+      saveState(state);
+    }
+
+    document.getElementById('welcomeOverlay').classList.remove('show');
+    showToast('Signed in');
+    await pullStateFromCloud();
+    render();
+    showOnboarding();
+    maybePromptNotifications();
+  }catch(e){
+    const msg = (e && e.message) || '';
+    if(/cancel/i.test(msg)) welcomeMsg('');
+    else welcomeMsg(msg || 'Apple sign-in failed');
+  }
+};
 document.getElementById('wSkip').onclick = ()=>{
   localStorage.setItem(WELCOME_KEY, '1');
   document.getElementById('welcomeOverlay').classList.remove('show');
   showOnboarding();
   maybePromptNotifications();
 };
-document.getElementById('wForgot').onclick = async ()=>{
+const wForgotEl = document.getElementById('wForgot');
+if(wForgotEl) wForgotEl.onclick = async ()=>{
   const email = document.getElementById('wEmail').value.trim();
   if(!email){ welcomeMsg('Enter your email first, then tap Forgot password.'); return; }
   try{
