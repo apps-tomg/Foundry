@@ -1,5 +1,6 @@
 :root{
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --bg:#0a0a0c;
@@ -20,11 +21,13 @@
   --warn:#ffd60a;        /* systemYellow */
   --steel:#64d2ff;       /* systemTeal-ish, secondary info */
 
-  --radius-sm:10px;
-  --radius-md:14px;
-  --radius-lg:20px;
+  --radius-sm:12px;
+  --radius-md:18px;
+  --radius-lg:26px;
   --btn-height:50px;
   --transition:0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* Elevation, tuned darker than Tiny Tummies for a dark surface */
+  --shadow: 0 1px 2px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.32);
 }
 body.light{
   --bg:#f7f3ee;
@@ -49,11 +52,16 @@ body.light{
 html, body{ height:100%; }
 body{
   margin:0; background:var(--bg); color:var(--text);
-  font-family:var(--font-ui); padding-bottom:calc(90px + env(safe-area-inset-bottom));
+  font-family:var(--font-ui); font-size:16px; line-height:1.45;
+  padding-bottom:calc(90px + env(safe-area-inset-bottom));
   -webkit-user-select:none; user-select:none;
   overscroll-behavior-y:none;
   -webkit-font-smoothing:antialiased;
 }
+/* Rounded display face on headings and primary actions. Numeric readouts
+   stay monospaced so weights and reps align in columns. */
+h1,h2,h3{ font-family:var(--font-display); }
+.finish, .g-log, .w-primary{ font-family:var(--font-display); }
 .num{font-family:var(--font-mono);}
 
 header{
@@ -66,7 +74,7 @@ header{
   width:36px; height:36px; border-radius:50%; background:var(--card); border:1px solid var(--line);
   font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;
 }
-header h1{ margin:0; font-size:28px; letter-spacing:-0.02em; text-transform:none; font-weight:700; }
+header h1{ margin:0; font-size:27px; letter-spacing:-0.01em; text-transform:none; font-weight:800; }
 header .sub{color:var(--muted); font-size:14px; margin-top:2px; letter-spacing:0; font-weight:500;}
 
 .rings-row{display:flex; align-items:center; gap:18px; margin-top:18px;}
@@ -91,18 +99,29 @@ header .sub{color:var(--muted); font-size:14px; margin-top:2px; letter-spacing:0
   backdrop-filter:saturate(180%) blur(20px);
 }
 body.light .viewtabs-bar{background:rgba(242,242,247,0.8);}
-.viewtabs{position:relative; display:flex; gap:0; padding:2px; background:rgba(120,120,128,0.16); border-radius:9px; overflow:hidden; min-height:32px;}
+.viewtabs{position:relative; display:flex; gap:0; padding:3px; background:var(--card-2); border-radius:999px; overflow:hidden; min-height:36px;}
 .viewtab{
-  position:relative; z-index:1; flex:1; text-align:center; padding:7px 4px; border-radius:7px;
+  position:relative; z-index:1; flex:1; text-align:center; padding:9px 2px; border-radius:999px;
   background:transparent; border:none;
   color:var(--muted); font-size:13px; text-transform:none; letter-spacing:0;
   font-weight:500; cursor:pointer; transition:color 0.15s;
 }
 .viewtab.active{color:var(--text); font-weight:600;}
 
-.daytabs{position:relative; display:flex; gap:0; margin:16px 20px 0; padding:2px; background:rgba(120,120,128,0.16); border-radius:9px; flex-wrap:nowrap; overflow-x:auto; min-height:34px;}
+/* The incoming view slides in from the direction of travel, so a leftward
+   swipe pushes content leftward. Only the incoming view animates; the
+   outgoing one hides immediately, which avoids the two layering mid-swipe. */
+.view-enter-right{ animation:view-enter-right 0.26s cubic-bezier(.3,.9,.3,1); }
+.view-enter-left{ animation:view-enter-left 0.26s cubic-bezier(.3,.9,.3,1); }
+@keyframes view-enter-right{ from{ opacity:0; transform:translateX(20px); } to{ opacity:1; transform:translateX(0); } }
+@keyframes view-enter-left{ from{ opacity:0; transform:translateX(-20px); } to{ opacity:1; transform:translateX(0); } }
+@media (prefers-reduced-motion: reduce){
+  .view-enter-right, .view-enter-left{ animation:none; }
+}
+
+.daytabs{position:relative; display:flex; gap:0; margin:16px 20px 0; padding:3px; background:var(--card-2); border-radius:999px; flex-wrap:nowrap; overflow-x:auto; min-height:38px;}
 .daytab{
-  position:relative; z-index:1; flex:1; min-width:60px; text-align:center; padding:8px 4px; border-radius:7px;
+  position:relative; z-index:1; flex:1; min-width:60px; text-align:center; padding:9px 4px; border-radius:999px;
   background:transparent; border:none;
   color:var(--muted); font-size:12px; text-transform:none; letter-spacing:0;
   font-weight:500; cursor:pointer; transition:color 0.15s;
@@ -112,7 +131,8 @@ body.light .viewtabs-bar{background:rgba(242,242,247,0.8);}
 main{padding:0 20px 18px;}
 .card{
   background:var(--card); border:none;
-  border-top:none; border-radius:16px; padding:16px; margin:12px 0 14px;
+  border-top:none; border-radius:var(--radius-md); padding:16px; margin:12px 0 14px;
+  box-shadow:var(--shadow);
 }
 .banner{
   margin:16px 20px 0; padding:12px 14px; border-radius:14px; font-size:13px;
@@ -191,7 +211,7 @@ select, .text-input{
 .chart-block{margin:16px 0 22px; padding:0 18px;}
 .chart-wrap{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 8px;}
 .stat-strip{display:flex; gap:10px; margin:16px 0 14px; padding:0 18px;}
-.stat-strip div{flex:1; min-width:0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px; text-align:center;}
+.stat-strip div{flex:1; min-width:0; background:var(--card); border:none; border-radius:var(--radius-md); padding:12px 8px; text-align:center; box-shadow:var(--shadow);}
 .stat-strip .v{font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .stat-strip .l{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;}
 
@@ -237,9 +257,9 @@ select, .text-input{
 .field-row{display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line);}
 .field-row label{font-size:13px;}
 .field-row input[type=number], .field-row .field-num, .field-row select.field-value{width:140px; background:var(--card); border:1px solid var(--line); color:var(--text); border-radius:var(--radius-md); padding:8px 10px; font-family:var(--font-mono); text-align:right; box-sizing:border-box; height:36px;}
-.seg-control{position:relative; display:flex; background:rgba(120,120,128,0.16); border:none; border-radius:9px; padding:2px; gap:0; overflow:hidden; min-height:32px;}
-.seg-pill{position:absolute; top:2px; left:2px; height:calc(100% - 4px); background:var(--card); border-radius:7px; box-shadow:0 1px 3px rgba(0,0,0,0.12), 0 1px 1px rgba(0,0,0,0.08); transition:transform var(--transition), width var(--transition); z-index:0;}
-.seg-btn{position:relative; z-index:1; flex:1; background:transparent; border:none; color:var(--muted); font-size:13px; font-weight:500; font-family:var(--font-ui); padding:6px 10px; border-radius:7px; cursor:pointer; transition:color 0.15s; white-space:nowrap; line-height:1.3;}
+.seg-control{position:relative; display:flex; background:var(--card-2); border:none; border-radius:999px; padding:3px; gap:0; overflow:hidden; min-height:36px;}
+.seg-pill{position:absolute; top:3px; left:3px; height:calc(100% - 6px); background:var(--card); border-radius:999px; box-shadow:var(--shadow); transition:transform var(--transition), width var(--transition); z-index:0;}
+.seg-btn{position:relative; z-index:1; flex:1; background:transparent; border:none; color:var(--muted); font-size:13px; font-weight:500; font-family:var(--font-ui); padding:7px 10px; border-radius:999px; cursor:pointer; transition:color 0.15s; white-space:nowrap; line-height:1.3;}
 .seg-btn.active{color:var(--text); font-weight:600;}
 .seg-btn:active{opacity:0.6;}
 
@@ -692,7 +712,7 @@ body.light .measure-date{color-scheme:light;}
 }
 
 /* Larger, tighter title; calmer subtitle */
-header h1{font-size:30px; letter-spacing:-0.03em;}
+header h1{font-size:27px; letter-spacing:-0.01em;}
 header .sub{font-size:13px;}
 
 /* Comfortable thumb targets on primary actions */

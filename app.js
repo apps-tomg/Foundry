@@ -680,23 +680,87 @@ function render(){
 // ---------- View switching ----------
 
 document.querySelectorAll('.viewtab').forEach(tab=>{
-  tab.onclick = ()=> switchView(tab.dataset.view);
+  tab.onclick = ()=> goToViewByIndex(VIEW_ORDER.indexOf(tab.dataset.view));
 });
-function switchView(view){
+const VIEW_ORDER = ['log','cardio','progress','body','settings'];
+const VIEW_ELS = { log:'logView', cardio:'cardioView', progress:'progressView', body:'bodyView', settings:'settingsView' };
+
+function hapticLight(){
+  try{
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(H) H.impact({ style: 'LIGHT' });
+  }catch(e){ /* no-op off-device */ }
+}
+
+function switchView(view, dir){
+  const previous = currentView;
   currentView = view;
   document.querySelectorAll('.viewtab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
   positionViewtabsPill();
-  document.getElementById('logView').style.display = view==='log' ? 'block' : 'none';
-  document.getElementById('cardioView').style.display = view==='cardio' ? 'block' : 'none';
-  document.getElementById('progressView').style.display = view==='progress' ? 'block' : 'none';
-  document.getElementById('bodyView').style.display = view==='body' ? 'block' : 'none';
-  document.getElementById('settingsView').style.display = view==='settings' ? 'block' : 'none';
+  Object.entries(VIEW_ELS).forEach(([name, id])=>{
+    document.getElementById(id).style.display = (name === view) ? 'block' : 'none';
+  });
   if(view === 'log') render();
   if(view === 'cardio') renderCardioView();
   if(view === 'progress') renderProgress();
   if(view === 'body') renderBody();
   if(view === 'settings') renderSettings();
+
+  // Animate only when actually changing view, and only if a direction is known.
+  if(dir && previous !== view){
+    const el = document.getElementById(VIEW_ELS[view]);
+    el.classList.remove('view-enter-right','view-enter-left');
+    void el.offsetWidth;   // force reflow so the animation replays
+    el.classList.add(dir === 1 ? 'view-enter-right' : 'view-enter-left');
+  }
 }
+
+function goToViewByIndex(i){
+  if(i < 0 || i >= VIEW_ORDER.length) return;
+  const target = VIEW_ORDER[i];
+  if(target === currentView) return;
+  const dir = i > VIEW_ORDER.indexOf(currentView) ? 1 : -1;
+  hapticLight();
+  switchView(target, dir);
+}
+
+// Horizontal swipe between the five main views. Deliberately ignores drags
+// that begin inside a horizontal scroller (day tabs, photo row, the SQL
+// block) or a segmented control, and stays inert while any overlay is open.
+(function initViewSwipe(){
+  let startX = 0, startY = 0, tracking = false, decided = false, horizontal = false;
+
+  document.body.addEventListener('touchstart', (e)=>{
+    if(e.touches.length !== 1){ tracking = false; return; }
+    if(document.querySelector('[class*="overlay"].show')){ tracking = false; return; }
+    if(e.target.closest('.daytabs, .photo-row, .sync-setup, .seg-control, input, textarea, select, canvas')){
+      tracking = false; return;
+    }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true; decided = false; horizontal = false;
+  }, { passive: true });
+
+  document.body.addEventListener('touchmove', (e)=>{
+    if(!tracking) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // Commit to an interpretation once, early: sideways swipe vs vertical scroll.
+    if(!decided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)){
+      decided = true;
+      horizontal = Math.abs(dx) > Math.abs(dy) * 1.3;
+    }
+  }, { passive: true });
+
+  document.body.addEventListener('touchend', (e)=>{
+    if(!tracking || !horizontal){ tracking = false; return; }
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    if(Math.abs(dx) < 55) return;   // ignore small drags
+    const i = VIEW_ORDER.indexOf(currentView);
+    goToViewByIndex(dx < 0 ? i + 1 : i - 1);
+  }, { passive: true });
+})();
 
 function positionViewtabsPill(){
   const el = document.getElementById('viewtabsControl');
