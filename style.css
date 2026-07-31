@@ -26,10 +26,14 @@
   --radius-lg:26px;
   --btn-height:50px;
   --transition:0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-  /* Elevation, tuned darker than Tiny Tummies for a dark surface */
-  --shadow: 0 1px 2px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.32);
+  /* Dark mode carries no shadow at all, matching Tiny Tummies. Card and
+     background lightness provide the separation instead. */
+  --shadow: none;
+  --ring-track:#242427;
 }
 body.light{
+  --shadow: 0 1px 2px rgba(47,58,52,0.05), 0 4px 16px rgba(47,58,52,0.06);
+  --ring-track:#e6ded2;
   --bg:#f7f3ee;
   --card:#ffffff;
   --card-2:#fdf6ee;
@@ -107,6 +111,31 @@ body.light .viewtabs-bar{background:rgba(242,242,247,0.8);}
   font-weight:500; cursor:pointer; transition:color 0.15s;
 }
 .viewtab.active{color:var(--text); font-weight:600;}
+
+/* Flat surfaces. Tiny Tummies defines cards and fields by fill plus a very
+   soft shadow, never a hairline outline, which is what made Foundry look
+   heavier by comparison. Real dividers keep their borders. */
+.card, .stat-strip div, .chart-wrap, .plan-option, .plate-calc, .goal-bar-track,
+.friend-connect, .challenge-card, .challenge-form, .warmup-panel, .plan-builder,
+.tools button, .rest-bar button, .cal-nav button, .session-timer button,
+.sync-actions button, .seg-control, .viewtabs, .daytabs, .toggle,
+.photo-thumb img, .row-tools button, .friends-icon-btn{
+  border-color:transparent;
+}
+.bw-form input, .cardio-row input, .field-row input[type=number], .field-row .field-num,
+.field-row select.field-value, .goal-focus-select, .challenge-form input[type="text"],
+.friend-add-row input, .search-input, .text-input, .measure-field input,
+.sync-form input, .welcome-form input, .ob-field input, .set-row input,
+.plate-calc input, .warmup-panel input{
+  border:1.5px solid transparent;
+}
+.bw-form input:focus, .cardio-row input:focus, .field-row input:focus,
+.field-row select:focus, .goal-focus-select:focus, .challenge-form input:focus,
+.friend-add-row input:focus, .search-input:focus, .text-input:focus,
+.measure-field input:focus, .sync-form input:focus, .welcome-form input:focus,
+.ob-field input:focus, .set-row input:focus{
+  outline:none; border-color:var(--accent);
+}
 
 /* The incoming view slides in from the direction of travel, so a leftward
    swipe pushes content leftward. Only the incoming view animates; the
