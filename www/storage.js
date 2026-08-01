@@ -21,7 +21,7 @@ function defaultState(){
     soreFlags: {},
     circuitMode: {},
     settings: {
-      theme:'system', restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
+      theme:'system', coachTone:'standard', restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
       progressionIncrement: 2, passcodeEnabled:false, passcodeHash: null, goalFocus:'muscle',
       units:'kg', displayName:'', shareStats:false, firstName:'', trainingDays:null
     }

@@ -519,6 +519,7 @@ input[type=file]{display:none;}
   padding:10px; font-family:var(--font-ui); font-weight:700; text-transform:none;
   font-size:12px; cursor:pointer;
 }
+.coach-tone-hint{font-size:11px; color:var(--muted); padding:6px 0 0; line-height:1.4;}
 .passcode-hint{font-size:11px; color:var(--muted); margin-top:6px;}
 
 @media (orientation: landscape){

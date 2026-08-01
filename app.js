@@ -1364,6 +1364,11 @@ function renderSettings(){
     btn.classList.toggle('active', btn.dataset.theme === (state.settings.theme || 'system'));
   });
   positionSegPill();
+  document.querySelectorAll('#coachSegControl .seg-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.tone === coachTone());
+  });
+  positionCoachPill();
+  renderCoachToneHint();
   document.getElementById('notifyToggle').classList.toggle('on', !!state.settings.notifyRest);
   document.getElementById('lockToggle').classList.toggle('on', !!state.settings.passcodeEnabled);
 }
@@ -1390,14 +1395,16 @@ function applyTheme(){
   positionSegPill();
 }
 
-function positionSegPill(){
-  const control = document.getElementById('themeSegControl');
-  const pill = document.getElementById('themeSegPill');
+function positionPillIn(controlId, pillId){
+  const control = document.getElementById(controlId);
+  const pill = document.getElementById(pillId);
   const activeBtn = control && control.querySelector('.seg-btn.active');
   if(!control || !pill || !activeBtn) return;
   pill.style.width = activeBtn.offsetWidth + 'px';
   pill.style.transform = 'translateX(' + activeBtn.offsetLeft + 'px)';
 }
+function positionSegPill(){ positionPillIn('themeSegControl','themeSegPill'); }
+function positionCoachPill(){ positionPillIn('coachSegControl','coachSegPill'); }
 
 window.addEventListener('resize', ()=>{
   if(document.getElementById('themeSegControl')) positionSegPill();
@@ -1418,6 +1425,29 @@ if(window.matchMedia){
     if((state.settings && state.settings.theme) === 'system') applyTheme();
   });
 }
+function renderCoachToneHint(){
+  const el = document.getElementById('coachToneHint');
+  if(!el) return;
+  const tone = coachTone();
+  el.textContent = tone === 'off'
+    ? 'Just the daily lines. No comment on missed sessions.'
+    : tone === 'hard'
+      ? 'Blunt and accountability-focused. Calls out missed sessions directly. Built for people who have quit before and want to be held to it.'
+      : 'Factual notes on where you are, without the pep talk.';
+}
+
+document.querySelectorAll('#coachSegControl .seg-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('#coachSegControl .seg-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    state.settings.coachTone = btn.dataset.tone;
+    positionCoachPill();
+    renderCoachToneHint();
+    saveState(state);
+    hapticLight();
+    renderHeaderQuote();
+  };
+});
+
 document.getElementById('notifyToggle').onclick = async ()=>{
   const turningOn = !state.settings.notifyRest;
   if(window.debugLog) window.debugLog('toggle clicked, turningOn=' + turningOn);
@@ -1761,6 +1791,52 @@ if('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNati
 // The hero line reads the training context and speaks to it, in priority
 // order: fresh PR > deload week > trained today > long gap > scheduled day >
 // long-term progress > daily rotation. Deterministic within a day.
+// Walks back day by day from yesterday, counting scheduled training days
+// with nothing logged. Stops at the first day that was either trained or not
+// scheduled, so a rest day never breaks a legitimate streak. Deload weeks
+// return 0, since not training then is the plan working, not a failure.
+function missedScheduledInARow(){
+  const schedule = state.settings.trainingDays;
+  if(!Array.isArray(schedule) || !schedule.length) return 0;
+  const prog = programWeekInfo(state);
+  if(prog && prog.isDeload) return 0;
+
+  const logged = new Set(state.sessions.map(s => new Date(s.date).toDateString()));
+  let missed = 0;
+  for(let back = 1; back <= 21; back++){
+    const d = new Date();
+    d.setDate(d.getDate() - back);
+    if(!schedule.includes(d.getDay())) continue;      // not a training day
+    if(logged.has(d.toDateString())) break;           // trained, streak intact
+    missed++;
+    if(missed >= 4) break;
+  }
+  return missed;
+}
+
+function coachTone(){
+  return (state.settings && state.settings.coachTone) || 'standard';
+}
+
+// Returns a message for missed scheduled sessions, or null to fall through to
+// the normal quote chain. Off returns null always. Standard states the fact.
+// Hard uses the accountability voice, targeting the pattern, never the person.
+function coachMissedMessage(who){
+  const tone = coachTone();
+  if(tone === 'off') return null;
+  const missed = missedScheduledInARow();
+  if(missed < 1) return null;
+
+  if(tone === 'standard'){
+    if(missed === 1) return `One session missed${who}. Today's the one that counts.`;
+    return `${missed} scheduled sessions missed${who}. Start with the easy day.`;
+  }
+  // hard
+  if(missed === 1) return `One missed session${who}. That's data, not a disaster. You know what happens if it becomes two.`;
+  if(missed === 2) return `Two in a row${who}. This is the exact pattern that ends attempts. Today isn't optional.`;
+  return `${missed} missed in a row${who}. This is where it usually gets abandoned quietly. Today, not Monday.`;
+}
+
 function renderHeaderQuote(){
   const el = document.getElementById('headerQuote');
   const n = state.settings.firstName;
@@ -1790,11 +1866,17 @@ function renderHeaderQuote(){
     return;
   }
 
-  // 4. A long gap gets a nudge, not a guilt trip.
+  // 4. Missed scheduled sessions, phrased by the chosen coach tone.
+  const coachMsg = coachMissedMessage(who);
+  if(coachMsg){ el.textContent = coachMsg; return; }
+
+  // 5. A long gap gets a nudge, or a harder push if the tone asks for one.
   if(state.sessions.length){
     const gap = Math.floor((now - new Date(state.sessions[0].date).getTime()) / day);
     if(gap >= 5){
-      el.textContent = `${gap} days since your last session${who}. Pick the easy day and just start.`;
+      el.textContent = coachTone() === 'hard'
+        ? `${gap} days${who}. This is the point it usually gets abandoned instead of restarted. Do the short version today.`
+        : `${gap} days since your last session${who}. Pick the easy day and just start.`;
       return;
     }
   }
