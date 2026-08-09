@@ -138,6 +138,225 @@ function travelSuggestion(){
   return { idx: travelIdx, label: getPlan(state, ladder[travelIdx]).label };
 }
 
+// ---------- Weekly budgets ----------
+// Off by default and entirely optional. Deliberately weekly-first: a heavy
+// Saturday is a withdrawal from a planned budget, not a failure, and daily
+// numbers invite exactly the kind of scrutiny this is meant to avoid. Nothing
+// here congratulates a deficit or ties a streak to a calorie figure.
+const BUDGET_FIELDS = [
+  { key:'kcal',         label:'Calories',  unit:'kcal', step:50  },
+  { key:'protein',      label:'Protein',   unit:'g',    step:5   },
+  { key:'fibre',        label:'Fibre',     unit:'g',    step:1   },
+  { key:'carbs',        label:'Carbs',     unit:'g',    step:5   },
+  { key:'fat',          label:'Fat',       unit:'g',    step:5   },
+  { key:'alcoholUnits', label:'Alcohol',   unit:'units',step:1   },
+  { key:'waterMl',      label:'Water',     unit:'ml',   step:250 },
+  { key:'steps',        label:'Steps',     unit:'',     step:500 },
+  { key:'creatineG',    label:'Creatine',  unit:'g',    step:1   },
+];
+
+function budgetsOn(){ return !!(state.settings && state.settings.budgetsOn); }
+function dateKeyOf(d){ return new Date(d).toISOString().slice(0,10); }
+function todayKey(){ return dateKeyOf(new Date()); }
+
+function intakeFor(key){
+  return (state.intake || []).find(e => e.date === key) || null;
+}
+
+function upsertIntake(key, patch){
+  if(!state.intake) state.intake = [];
+  let entry = state.intake.find(e => e.date === key);
+  if(!entry){ entry = { date: key }; state.intake.push(entry); }
+  Object.assign(entry, patch);
+  // Drop a day that has been cleared back to nothing, so empty rows don't pile up.
+  const hasAny = BUDGET_FIELDS.some(f => (entry[f.key] || 0) > 0);
+  if(!hasAny) state.intake = state.intake.filter(e => e.date !== key);
+  state.intake.sort((a,b) => a.date < b.date ? 1 : -1);
+  saveState(state);
+}
+
+// Sums the current ISO week, matching how sessions and volume are already grouped.
+function weekIntakeTotals(){
+  const wk = isoWeekKey(new Date().toISOString());
+  const totals = {};
+  BUDGET_FIELDS.forEach(f => totals[f.key] = 0);
+  (state.intake || []).forEach(e => {
+    if(isoWeekKey(e.date) !== wk) return;
+    BUDGET_FIELDS.forEach(f => totals[f.key] += (e[f.key] || 0));
+  });
+  return totals;
+}
+
+// Fibre gets ramped rather than jumped, because going from 20g to 35g overnight
+// is genuinely unpleasant and the usual reason people abandon it.
+function effectiveBudget(key){
+  const raw = (state.settings.budgets || {})[key] || 0;
+  if(key !== 'fibre' || !raw) return raw;
+  const startedAt = state.settings.fibreRampStart;
+  if(!startedAt) return raw;
+  const weeks = Math.floor((Date.now() - new Date(startedAt).getTime()) / (7 * 86400000));
+  if(weeks >= 4) return raw;
+  return Math.round(raw * (0.6 + (0.1 * weeks) + 0.1));
+}
+
+function fibreRamping(){
+  const startedAt = state.settings.fibreRampStart;
+  if(!startedAt || !(state.settings.budgets || {}).fibre) return false;
+  return (Date.now() - new Date(startedAt).getTime()) < 4 * 7 * 86400000;
+}
+
+// Budgets are set for a bodyweight. Once that has moved a long way the numbers
+// are stale, so it says so rather than quietly drifting.
+function budgetStaleBy(){
+  const setAt = state.settings.budgetSetAtWeight;
+  if(!setAt || !(state.bodyweights || []).length) return 0;
+  const latest = state.bodyweights[state.bodyweights.length - 1].kg;
+  const diff = setAt - latest;
+  return diff >= 5 ? Math.floor(diff) : 0;
+}
+
+// The week's totals, shown as plain progress against the budget. No colour
+// coding for being under, no praise, no scoring. Just where the week is.
+function renderBudgetWeek(){
+  const el = document.getElementById('budgetWeek');
+  if(!el) return;
+  if(!budgetsOn()){ el.style.display = 'none'; return; }
+  const totals = weekIntakeTotals();
+  const tracked = BUDGET_FIELDS.filter(f => effectiveBudget(f.key) > 0);
+
+  if(!tracked.length){
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="budget-week-head"><h3 class="section-h" style="margin:0;">This Week</h3></div>
+      <div class="tier-empty">Set some weekly budgets in Settings to see totals here.</div>
+      <button class="row-tools-solo" id="intakeOpenBtn" type="button" style="width:100%; margin-top:10px;">Log Intake</button>`;
+    wireIntakeOpen();
+    return;
+  }
+
+  const stale = budgetStaleBy();
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="budget-week-head"><h3 class="section-h" style="margin:0;">This Week</h3></div>
+    ${stale ? `<div class="budget-stale">You are about ${stale}${WU()} down since these were set. Worth recalculating them.</div>` : ''}
+    ${tracked.map(f => {
+      const target = effectiveBudget(f.key);
+      const used = Math.round(totals[f.key] || 0);
+      const pct = Math.min(100, Math.round((used / target) * 100));
+      const ramp = (f.key === 'fibre' && fibreRamping()) ? '<span class="budget-ramp">ramping</span>' : '';
+      return `
+        <div class="budget-row">
+          <div class="budget-row-head">
+            <span class="budget-name">${f.label}${ramp}</span>
+            <span class="budget-figures num">${used} / ${target}${f.unit ? ' ' + f.unit : ''}</span>
+          </div>
+          <div class="budget-bar"><div class="budget-bar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join('')}
+    <button class="row-tools-solo" id="intakeOpenBtn" type="button" style="width:100%; margin-top:12px;">Log Intake</button>
+  `;
+  wireIntakeOpen();
+}
+
+function wireIntakeOpen(){
+  const btn = document.getElementById('intakeOpenBtn');
+  if(btn) btn.onclick = ()=>{ intakeDate = todayKey(); openIntake(); };
+}
+
+let intakeDate = null;
+
+function openIntake(){
+  document.getElementById('intakeOverlay').classList.add('show');
+  renderIntakeForm();
+}
+
+function renderIntakeForm(){
+  const key = intakeDate || todayKey();
+  const entry = intakeFor(key) || {};
+  const d = new Date(key + 'T12:00:00');
+  const isToday = key === todayKey();
+  document.getElementById('intakeDateLabel').textContent = isToday
+    ? 'Today'
+    : d.toLocaleDateString([], { weekday:'short', day:'numeric', month:'short' });
+  // No logging into the future.
+  document.getElementById('intakeNext').disabled = isToday;
+
+  const tracked = BUDGET_FIELDS.filter(f => (state.settings.budgets || {})[f.key] > 0);
+  const list = tracked.length ? tracked : BUDGET_FIELDS;
+  document.getElementById('intakeFields').innerHTML = list.map(f => `
+    <div class="intake-row">
+      <label>${f.label}${f.unit ? `, ${f.unit}` : ''}</label>
+      <input type="number" class="intake-in" data-k="${f.key}" min="0" step="${f.step}"
+             value="${entry[f.key] || ''}" placeholder="0" inputmode="decimal">
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.intake-in').forEach(inp=>{
+    inp.onchange = ()=>{
+      const v = parseFloat(inp.value);
+      upsertIntake(key, { [inp.dataset.k]: (v > 0) ? v : 0 });
+      renderIntakeAlcoholNote();
+      renderBudgetWeek();
+    };
+  });
+  renderIntakeAlcoholNote();
+}
+
+// Alcohol calories belong inside the calorie budget, not on top of it. Rather
+// than silently editing a number someone typed, this shows the arithmetic so
+// they can decide whether their calorie figure already includes it.
+function renderIntakeAlcoholNote(){
+  const el = document.getElementById('intakeAlcoholNote');
+  if(!el) return;
+  const entry = intakeFor(intakeDate || todayKey()) || {};
+  const units = entry.alcoholUnits || 0;
+  el.textContent = units
+    ? `${units} units is roughly ${Math.round(units * 56)} kcal. That should sit inside your calorie figure, not on top of it.`
+    : '';
+}
+
+function shiftIntakeDate(days){
+  const d = new Date((intakeDate || todayKey()) + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  const key = dateKeyOf(d);
+  if(key > todayKey()) return;
+  intakeDate = key;
+  renderIntakeForm();
+}
+
+function renderBudgetSettingsUI(){
+  const el = document.getElementById('budgetFields');
+  if(!el) return;
+  const on = budgetsOn();
+  el.style.display = on ? 'block' : 'none';
+  if(!on) return;
+  const b = state.settings.budgets || {};
+  el.innerHTML = BUDGET_FIELDS.map(f => `
+    <div class="budget-set-row">
+      <label>${f.label}${f.unit ? `, ${f.unit}` : ''} per week</label>
+      <input type="number" class="budget-target" data-k="${f.key}" min="0" step="${f.step}" value="${b[f.key] || ''}" placeholder="0">
+    </div>
+  `).join('') + `
+    <div class="budget-note">Leave anything at zero to stop tracking it. Totals are shown per week, not per day.</div>
+  `;
+  el.querySelectorAll('.budget-target').forEach(inp=>{
+    inp.onchange = ()=>{
+      if(!state.settings.budgets) state.settings.budgets = {};
+      const v = parseFloat(inp.value);
+      state.settings.budgets[inp.dataset.k] = (v > 0) ? v : 0;
+      inp.value = state.settings.budgets[inp.dataset.k] || '';
+      // Note the weight these were set at, so staleness can be flagged later.
+      if((state.bodyweights || []).length && !state.settings.budgetSetAtWeight){
+        state.settings.budgetSetAtWeight = state.bodyweights[state.bodyweights.length - 1].kg;
+      }
+      if(inp.dataset.k === 'fibre' && v > 0 && !state.settings.fibreRampStart){
+        state.settings.fibreRampStart = new Date().toISOString();
+      }
+      saveState(state);
+    };
+  });
+}
+
 // ---------- Phases ----------
 // A phase is a dated stretch of months with its own intent, sitting above the
 // program block. Blocks handle weeks and deloads; phases handle "what is this
@@ -1235,6 +1454,7 @@ function renderProgress(){
 }
 
 function renderBody(){
+  renderBudgetWeek();
   document.getElementById('bwInput').placeholder = `${WU()} today`;
   renderBwChart();
   renderMeasurements();
@@ -1693,6 +1913,8 @@ function renderTierLadderUI(){
 function renderSettings(){
   renderTierLadderUI();
   renderPhaseListUI();
+  document.getElementById('budgetsToggle').classList.toggle('on', budgetsOn());
+  renderBudgetSettingsUI();
   const el = document.getElementById('planOptions');
   el.innerHTML = '';
   Object.entries(getAllPlans(state)).forEach(([key, plan])=>{
@@ -1870,6 +2092,26 @@ function renderPriorityChips(){
     };
   });
 }
+
+const intakeCloseBtn = document.getElementById('intakeClose');
+if(intakeCloseBtn) intakeCloseBtn.onclick = ()=>{
+  document.getElementById('intakeOverlay').classList.remove('show');
+  if(currentView === 'body') renderBudgetWeek();
+};
+const intakePrevBtn = document.getElementById('intakePrev');
+if(intakePrevBtn) intakePrevBtn.onclick = ()=> shiftIntakeDate(-1);
+const intakeNextBtn = document.getElementById('intakeNext');
+if(intakeNextBtn) intakeNextBtn.onclick = ()=> shiftIntakeDate(1);
+
+const budgetsToggle = document.getElementById('budgetsToggle');
+if(budgetsToggle) budgetsToggle.onclick = ()=>{
+  state.settings.budgetsOn = !state.settings.budgetsOn;
+  budgetsToggle.classList.toggle('on', state.settings.budgetsOn);
+  saveState(state);
+  renderBudgetSettingsUI();
+  hapticLight();
+  if(currentView === 'body') renderBody();
+};
 
 const phaseAddBtn = document.getElementById('phaseAddBtn');
 if(phaseAddBtn) phaseAddBtn.onclick = ()=>{

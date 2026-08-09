@@ -18,6 +18,7 @@ function defaultState(){
     customPlans: {},
     tierLadder: [],
     phases: [],
+    intake: [],
     machineSetups: {},
     program: null,
     lastRecapWeek: null,
@@ -25,7 +26,10 @@ function defaultState(){
     circuitMode: {},
     settings: {
       theme:'system', coachTone:'standard', weeklySessionTarget:3, weeklySessionFloor:2, travelMode:false,
-      loadCeiling:0, priorityMuscles:[], rotationWeeks:7, lastRotation:null, restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
+      loadCeiling:0, priorityMuscles:[], rotationWeeks:7, lastRotation:null,
+      budgetsOn:false, fibreRampStart:null, budgetSetAtWeight:null,
+      budgets:{ kcal:0, protein:0, fat:0, carbs:0, fibre:0, alcoholUnits:0, waterMl:0, steps:0, creatineG:0 },
+      restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
       progressionIncrement: 2, passcodeEnabled:false, passcodeHash: null, goalFocus:'muscle',
       units:'kg', displayName:'', shareStats:false, firstName:'', trainingDays:null
     }
@@ -57,6 +61,7 @@ function loadState(){
       merged.customPlans = parsed.customPlans || {};
       merged.tierLadder = parsed.tierLadder || [];
       merged.phases = parsed.phases || [];
+      merged.intake = parsed.intake || [];
       merged.machineSetups = parsed.machineSetups || {};
       merged.soreFlags = parsed.soreFlags || {};
       merged.circuitMode = parsed.circuitMode || {};

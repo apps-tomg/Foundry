@@ -125,6 +125,18 @@
   </div>
 </div>
 
+<div class="page-overlay" id="intakeOverlay">
+  <button class="guided-close" id="intakeClose" aria-label="Close">&times;</button>
+  <h2 class="friends-page-title">Log Intake</h2>
+  <div class="intake-date-row">
+    <button class="intake-nav" id="intakePrev" type="button">&lsaquo;</button>
+    <div class="intake-date" id="intakeDateLabel"></div>
+    <button class="intake-nav" id="intakeNext" type="button">&rsaquo;</button>
+  </div>
+  <div id="intakeFields"></div>
+  <div class="budget-note" id="intakeAlcoholNote"></div>
+</div>
+
 <div class="page-overlay" id="friendsOverlay">
   <button class="guided-close" id="friendsClose" aria-label="Close Friends">&times;</button>
   <h2 class="friends-page-title">Friends</h2>
@@ -375,6 +387,7 @@
 
 
 <div id="bodyView" style="display:none;">
+  <div class="budget-week" id="budgetWeek" style="display:none;"></div>
   <div class="chart-block">
     <h3>Bodyweight</h3>
     <div class="bw-form">
@@ -428,6 +441,14 @@
     <div class="tier-ladder-hint">Order these from most to least equipment. When you can't manage the top one, Foundry offers the next one down instead of letting you skip.</div>
     <div id="tierLadderList"></div>
     <button class="row-tools-solo" id="tierAddBtn" type="button" style="width:100%;">+ Add Fallback</button>
+
+    <h3 class="section-h" style="margin-top:20px;">Weekly Budgets</h3>
+    <div class="tier-ladder-hint">Optional. Tracks weekly totals for food, drink, water, steps, and supplements. Weekly, never daily, and nothing here scores you.</div>
+    <div class="field-row">
+      <label>Track weekly budgets</label>
+      <div class="toggle" id="budgetsToggle"><div class="knob"></div></div>
+    </div>
+    <div id="budgetFields" style="display:none;"></div>
 
     <h3 class="section-h" style="margin-top:20px;">Phases</h3>
     <div class="tier-ladder-hint">Months, not weeks. Each phase says what that stretch of the year is actually for, so month four has a purpose beyond carrying on.</div>
