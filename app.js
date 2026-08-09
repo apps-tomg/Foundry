@@ -1675,6 +1675,60 @@ document.querySelectorAll('#coachSegControl .seg-btn').forEach(btn=>{
   };
 });
 
+const tierAddBtn = document.getElementById('tierAddBtn');
+if(tierAddBtn) tierAddBtn.onclick = ()=>{
+  if(!state.tierLadder) state.tierLadder = [];
+  if(!state.tierLadder.length){
+    state.tierLadder = defaultLadderSeed();
+  } else {
+    // Add the floor if it isn't in yet, otherwise repeat the last rung so the
+    // person can change it to whatever they want.
+    const all = getAllPlans(state);
+    const next = (all['floor1'] && !state.tierLadder.includes('floor1'))
+      ? 'floor1'
+      : state.tierLadder[state.tierLadder.length - 1];
+    state.tierLadder.push(next);
+  }
+  saveState(state);
+  renderTierLadderUI();
+  renderTierStrip();
+  hapticLight();
+};
+
+const escDowngradeBtn = document.getElementById('escalationDowngrade');
+if(escDowngradeBtn) escDowngradeBtn.onclick = ()=> downgradeTier();
+
+const sessionTargetInput = document.getElementById('sessionTargetInput');
+if(sessionTargetInput) sessionTargetInput.onchange = (e)=>{
+  const v = parseInt(e.target.value);
+  state.settings.weeklySessionTarget = (v > 0 && v <= 14) ? v : 3;
+  e.target.value = state.settings.weeklySessionTarget;
+  saveState(state);
+  if(currentView === 'log') render();
+};
+
+const sessionFloorInput = document.getElementById('sessionFloorInput');
+if(sessionFloorInput) sessionFloorInput.onchange = (e)=>{
+  let v = parseInt(e.target.value);
+  if(isNaN(v) || v < 0) v = 0;
+  // A floor above the target makes no sense, so clamp it.
+  const target = state.settings.weeklySessionTarget || 3;
+  if(v > target) v = target;
+  state.settings.weeklySessionFloor = v;
+  e.target.value = v;
+  saveState(state);
+  if(currentView === 'log') render();
+};
+
+const travelToggle = document.getElementById('travelToggle');
+if(travelToggle) travelToggle.onclick = ()=>{
+  state.settings.travelMode = !state.settings.travelMode;
+  travelToggle.classList.toggle('on', state.settings.travelMode);
+  saveState(state);
+  hapticLight();
+  showToast(state.settings.travelMode ? 'Travel mode on' : 'Travel mode off');
+};
+
 document.getElementById('notifyToggle').onclick = async ()=>{
   const turningOn = !state.settings.notifyRest;
   if(window.debugLog) window.debugLog('toggle clicked, turningOn=' + turningOn);
