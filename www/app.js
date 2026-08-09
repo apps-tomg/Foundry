@@ -138,6 +138,131 @@ function travelSuggestion(){
   return { idx: travelIdx, label: getPlan(state, ladder[travelIdx]).label };
 }
 
+// ---------- Phases ----------
+// A phase is a dated stretch of months with its own intent, sitting above the
+// program block. Blocks handle weeks and deloads; phases handle "what is this
+// part of the year actually for", which is what stops month four drifting.
+function currentPhase(){
+  const list = state.phases || [];
+  const now = Date.now();
+  for(const p of list){
+    if(!p.start || !p.end) continue;
+    const s = new Date(p.start).getTime();
+    const e = new Date(p.end).getTime() + 86400000;   // inclusive of the end day
+    if(now >= s && now < e) return p;
+  }
+  return null;
+}
+
+function phaseProgress(p){
+  const s = new Date(p.start).getTime();
+  const e = new Date(p.end).getTime() + 86400000;
+  const totalWeeks = Math.max(1, Math.round((e - s) / (7 * 86400000)));
+  const doneWeeks = Math.max(0, Math.floor((Date.now() - s) / (7 * 86400000)));
+  return { week: Math.min(totalWeeks, doneWeeks + 1), of: totalWeeks,
+           pct: Math.min(100, Math.round(((Date.now() - s) / (e - s)) * 100)) };
+}
+
+function renderPhaseCard(){
+  const el = document.getElementById('phaseCard');
+  if(!el) return;
+  const p = currentPhase();
+  if(!p){ el.style.display = 'none'; return; }
+  const prog = phaseProgress(p);
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="phase-head">
+      <div>
+        <div class="phase-name">${escHtml(p.name || 'Current phase')}</div>
+        <div class="phase-weeks num">Week ${prog.week} of ${prog.of}</div>
+      </div>
+      <div class="phase-pct num">${prog.pct}%</div>
+    </div>
+    ${p.focus ? `<div class="phase-focus">${escHtml(p.focus)}</div>` : ''}
+    <div class="phase-bar"><div class="phase-bar-fill" style="width:${prog.pct}%"></div></div>
+  `;
+}
+
+// A phase can raise or lower the weekly session commitment, which is how a
+// travel-heavy stretch stays honest instead of just being a failed month.
+function phaseSessionTarget(){
+  const p = currentPhase();
+  return (p && p.sessionTarget) ? p.sessionTarget : null;
+}
+
+function renderPhaseListUI(){
+  const el = document.getElementById('phaseList');
+  if(!el) return;
+  const list = state.phases || [];
+  if(!list.length){
+    el.innerHTML = '<div class="tier-empty">No phases set. Seed a 12 month outline below, then edit the dates and intent to suit you.</div>';
+    return;
+  }
+  el.innerHTML = list.map((p, i) => `
+    <div class="phase-row">
+      <input type="text" class="phase-in-name" data-i="${i}" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Phase name" maxlength="40">
+      <div class="phase-dates">
+        <input type="date" class="phase-in-start" data-i="${i}" value="${p.start || ''}">
+        <input type="date" class="phase-in-end" data-i="${i}" value="${p.end || ''}">
+      </div>
+      <input type="text" class="phase-in-focus" data-i="${i}" value="${(p.focus||'').replace(/"/g,'&quot;')}" placeholder="What this phase is for" maxlength="90">
+      <button class="tier-remove phase-remove" type="button" data-i="${i}">Remove phase</button>
+    </div>
+  `).join('');
+
+  const bind = (sel, field)=>{
+    el.querySelectorAll(sel).forEach(inp=>{
+      inp.onchange = ()=>{
+        state.phases[parseInt(inp.dataset.i)][field] = inp.value;
+        saveState(state);
+        renderPhaseCard();
+      };
+    });
+  };
+  bind('.phase-in-name','name');
+  bind('.phase-in-start','start');
+  bind('.phase-in-end','end');
+  bind('.phase-in-focus','focus');
+
+  el.querySelectorAll('.phase-remove').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.phases.splice(parseInt(btn.dataset.i), 1);
+      saveState(state);
+      renderPhaseListUI();
+      renderPhaseCard();
+    };
+  });
+}
+
+// Relative to today rather than fixed calendar dates, so the template is
+// useful to anyone starting whenever they happen to start.
+function seedPhases(){
+  const blocks = [
+    { name:'Prove the slot',     months:2, focus:'No weight target. The only goal is the sessions happening.' },
+    { name:'Survive disruption', months:2, focus:'Travel and busy weeks. Hold steady rather than push.' },
+    { name:'Deficit properly',   months:3, focus:'Full budget applies. One planned exception week.' },
+    { name:'Build',              months:3, focus:'Prioritise the muscles you actually care about.' },
+    { name:'Finish or maintain', months:2, focus:'Decide: push on, or hold and keep training.' },
+  ];
+  const out = [];
+  const cursor = new Date();
+  cursor.setHours(0,0,0,0);
+  blocks.forEach(b=>{
+    const start = new Date(cursor);
+    const end = new Date(cursor);
+    end.setMonth(end.getMonth() + b.months);
+    end.setDate(end.getDate() - 1);
+    out.push({
+      name: b.name,
+      focus: b.focus,
+      start: start.toISOString().slice(0,10),
+      end: end.toISOString().slice(0,10)
+    });
+    cursor.setMonth(cursor.getMonth() + b.months);
+  });
+  return out;
+}
+
 function isPriorityMuscle(muscle){
   const list = state.settings.priorityMuscles || [];
   return !!muscle && list.includes(muscle);
@@ -830,7 +955,8 @@ function renderStats(){
 
   const thisWeekKey = isoWeekKey(new Date().toISOString());
   const sessionsThisWeek = state.sessions.filter(s => isoWeekKey(s.date) === thisWeekKey).length;
-  const sessionsTarget = (state.settings.weeklySessionTarget)
+  const sessionsTarget = phaseSessionTarget()
+    || (state.settings.weeklySessionTarget)
     || (Array.isArray(state.settings.trainingDays) && state.settings.trainingDays.length)
     || currentPlan().days.length;
 
@@ -1088,6 +1214,7 @@ function renderCardioHistory(){
 // ---------- Progress view ----------
 
 function renderProgress(){
+  renderPhaseCard();
   renderDeloadBanner();
   renderProgressStats();
   renderInsights();
@@ -1565,6 +1692,7 @@ function renderTierLadderUI(){
 
 function renderSettings(){
   renderTierLadderUI();
+  renderPhaseListUI();
   const el = document.getElementById('planOptions');
   el.innerHTML = '';
   Object.entries(getAllPlans(state)).forEach(([key, plan])=>{
@@ -1742,6 +1870,38 @@ function renderPriorityChips(){
     };
   });
 }
+
+const phaseAddBtn = document.getElementById('phaseAddBtn');
+if(phaseAddBtn) phaseAddBtn.onclick = ()=>{
+  if(!state.phases) state.phases = [];
+  // New phases start the day after the last one ends, so a sequence stays
+  // contiguous without the person doing date arithmetic.
+  const last = state.phases[state.phases.length - 1];
+  const start = new Date();
+  if(last && last.end){ start.setTime(new Date(last.end).getTime() + 86400000); }
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 2);
+  end.setDate(end.getDate() - 1);
+  state.phases.push({
+    name: '', focus: '',
+    start: start.toISOString().slice(0,10),
+    end: end.toISOString().slice(0,10)
+  });
+  saveState(state);
+  renderPhaseListUI();
+  renderPhaseCard();
+  hapticLight();
+};
+
+const phaseSeedBtn = document.getElementById('phaseSeedBtn');
+if(phaseSeedBtn) phaseSeedBtn.onclick = ()=>{
+  if((state.phases || []).length && !confirm('Replace your existing phases with a fresh 12 month outline?')) return;
+  state.phases = seedPhases();
+  saveState(state);
+  renderPhaseListUI();
+  renderPhaseCard();
+  showToast('12 month outline seeded');
+};
 
 const rotationDoneBtn = document.getElementById('rotationDoneBtn');
 if(rotationDoneBtn) rotationDoneBtn.onclick = ()=>{

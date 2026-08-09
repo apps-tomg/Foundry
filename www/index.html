@@ -285,6 +285,7 @@
 </div>
 
 <div id="progressView" style="display:none;">
+  <div class="phase-card" id="phaseCard" style="display:none;"></div>
   <div id="deloadBanner"></div>
 
   <div class="stat-strip" id="progressStats"></div>
@@ -427,6 +428,14 @@
     <div class="tier-ladder-hint">Order these from most to least equipment. When you can't manage the top one, Foundry offers the next one down instead of letting you skip.</div>
     <div id="tierLadderList"></div>
     <button class="row-tools-solo" id="tierAddBtn" type="button" style="width:100%;">+ Add Fallback</button>
+
+    <h3 class="section-h" style="margin-top:20px;">Phases</h3>
+    <div class="tier-ladder-hint">Months, not weeks. Each phase says what that stretch of the year is actually for, so month four has a purpose beyond carrying on.</div>
+    <div id="phaseList"></div>
+    <div class="phase-actions">
+      <button class="row-tools-solo" id="phaseAddBtn" type="button">+ Add Phase</button>
+      <button class="row-tools-solo" id="phaseSeedBtn" type="button">Seed 12 Months</button>
+    </div>
     <button class="add-exercise-btn" id="builderOpenBtn" type="button">+ Create Custom Plan</button>
     <div class="plan-builder" id="planBuilder"></div>
 

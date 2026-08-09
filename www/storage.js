@@ -17,6 +17,7 @@ function defaultState(){
     customExercises: {},
     customPlans: {},
     tierLadder: [],
+    phases: [],
     machineSetups: {},
     program: null,
     lastRecapWeek: null,
@@ -55,6 +56,7 @@ function loadState(){
       merged.customExercises = parsed.customExercises || {};
       merged.customPlans = parsed.customPlans || {};
       merged.tierLadder = parsed.tierLadder || [];
+      merged.phases = parsed.phases || [];
       merged.machineSetups = parsed.machineSetups || {};
       merged.soreFlags = parsed.soreFlags || {};
       merged.circuitMode = parsed.circuitMode || {};

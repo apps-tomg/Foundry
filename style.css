@@ -279,6 +279,32 @@ select, .text-input{
 .photo-thumb .d{font-size:10px; color:var(--muted); margin-top:4px; font-family:var(--font-mono);}
 
 .settings-block{padding:0 18px; margin-bottom:22px;}
+.phase-card{
+  margin:16px 18px 0; padding:14px; border-radius:var(--radius-md);
+  background:var(--card); box-shadow:var(--shadow);
+}
+.phase-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.phase-name{font-family:var(--font-display); font-size:16px; font-weight:800;}
+.phase-weeks{font-size:11px; color:var(--muted); margin-top:2px;}
+.phase-pct{font-family:var(--font-mono); font-size:18px; font-weight:800; color:var(--accent);}
+.phase-focus{font-size:12px; color:var(--muted); line-height:1.4; margin-top:8px;}
+.phase-bar{height:6px; border-radius:999px; background:var(--card-2); margin-top:10px; overflow:hidden;}
+.phase-bar-fill{height:100%; background:var(--accent); border-radius:999px; transition:width var(--transition);}
+.phase-row{
+  background:var(--card); border-radius:var(--radius-md); padding:12px;
+  margin-bottom:10px; display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow);
+}
+.phase-row input[type="text"], .phase-row input[type="date"]{
+  background:var(--card-2); border:1.5px solid transparent; color:var(--text);
+  border-radius:var(--radius-sm); padding:9px 10px; font-size:13px;
+  font-family:var(--font-ui); box-sizing:border-box; width:100%;
+}
+.phase-row input:focus{outline:none; border-color:var(--accent);}
+.phase-dates{display:flex; gap:8px;}
+.phase-remove{align-self:flex-start;}
+.phase-actions{display:flex; gap:8px;}
+.phase-actions button{flex:1; margin-bottom:0;}
+
 .priority-tag{
   margin-left:6px; font-size:9px; font-weight:800; text-transform:uppercase;
   letter-spacing:0.06em; color:var(--accent); background:var(--accent-soft);
