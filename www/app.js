@@ -138,6 +138,97 @@ function travelSuggestion(){
   return { idx: travelIdx, label: getPlan(state, ladder[travelIdx]).label };
 }
 
+// ---------- Health records ----------
+// A logbook, not a diagnostic tool. Foundry records what you were told and
+// when, so you can compare a later reading against a baseline and hand real
+// numbers to a doctor. It deliberately does not interpret or flag anything.
+function addHealthCheck(entry){
+  if(!state.healthChecks) state.healthChecks = [];
+  state.healthChecks.unshift(Object.assign({ date: new Date().toISOString() }, entry));
+  saveState(state);
+}
+
+// Baseline, six months, twelve months. Derived from the earliest record so it
+// works whenever someone starts, rather than assuming a calendar.
+function healthCheckDue(){
+  const list = state.healthChecks || [];
+  if(!list.length) return 'baseline';
+  const first = new Date(list[list.length - 1].date).getTime();
+  const months = (Date.now() - first) / (30.44 * 86400000);
+  const latest = new Date(list[0].date).getTime();
+  const sinceLatest = (Date.now() - latest) / (30.44 * 86400000);
+  if(months >= 12 && sinceLatest >= 5) return '12 month';
+  if(months >= 6 && sinceLatest >= 5) return '6 month';
+  return null;
+}
+
+function renderHealthRecords(){
+  const el = document.getElementById('healthList');
+  if(!el) return;
+  const due = healthCheckDue();
+  const dueEl = document.getElementById('healthDue');
+  if(dueEl){
+    dueEl.style.display = due ? 'block' : 'none';
+    if(due) dueEl.textContent = due === 'baseline'
+      ? 'No baseline recorded. Worth getting bloods and blood pressure done before you judge any progress.'
+      : `Your ${due} check is due. Book it in and log the numbers here.`;
+  }
+
+  const list = state.healthChecks || [];
+  if(!list.length){
+    el.innerHTML = '<div class="tier-empty">Nothing recorded yet.</div>';
+    return;
+  }
+  el.innerHTML = list.map((h, i) => {
+    const when = new Date(h.date).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' });
+    const value = h.kind === 'bp'
+      ? `<span class="num">${h.systolic}/${h.diastolic}</span> mmHg`
+      : 'Bloods taken';
+    return `
+      <div class="health-row">
+        <div>
+          <div class="health-value">${value}</div>
+          <div class="health-date">${when}</div>
+          ${h.notes ? `<div class="health-notes">${escHtml(h.notes)}</div>` : ''}
+        </div>
+        <button class="health-remove" type="button" data-i="${i}">&times;</button>
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('.health-remove').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.healthChecks.splice(parseInt(btn.dataset.i), 1);
+      saveState(state);
+      renderHealthRecords();
+    };
+  });
+}
+
+// Target versus actual, for the two things that are genuinely in your control
+// to influence over a year. Neutral phrasing, no congratulating or scolding.
+function renderTargetCard(){
+  const el = document.getElementById('targetCard');
+  if(!el) return;
+  const target = state.settings.targetWeight;
+  const bw = state.bodyweights || [];
+  if(!target || !bw.length){ el.style.display = 'none'; return; }
+  const current = bw[bw.length - 1].kg;
+  const start = bw[0].kg;
+  const totalToGo = start - target;
+  const doneSoFar = start - current;
+  const pct = totalToGo > 0 ? Math.max(0, Math.min(100, Math.round((doneSoFar / totalToGo) * 100))) : 0;
+  const remaining = Math.round((current - target) * 10) / 10;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="budget-row-head">
+      <span class="budget-name">Weight target</span>
+      <span class="budget-figures num">${current}${WU()} of ${target}${WU()}</span>
+    </div>
+    <div class="budget-bar"><div class="budget-bar-fill" style="width:${pct}%"></div></div>
+    <div class="target-note">${remaining > 0 ? `${remaining}${WU()} to go, based on your weekly trend.` : 'Target reached. Worth deciding whether to hold here or keep going.'}</div>
+  `;
+}
+
 // ---------- Weekly budgets ----------
 // Off by default and entirely optional. Deliberately weekly-first: a heavy
 // Saturday is a withdrawal from a planned budget, not a failure, and daily
@@ -1455,6 +1546,8 @@ function renderProgress(){
 
 function renderBody(){
   renderBudgetWeek();
+  renderTargetCard();
+  renderHealthRecords();
   document.getElementById('bwInput').placeholder = `${WU()} today`;
   renderBwChart();
   renderMeasurements();
@@ -1973,6 +2066,8 @@ function renderSettings(){
 
   document.getElementById('restInput').value = state.settings.restSeconds;
   document.getElementById('goalInput').value = state.settings.weeklyGoal;
+  document.getElementById('targetWeightInput').value = state.settings.targetWeight || '';
+  document.querySelector('label[data-unit-label="target"]').textContent = `Target weight, ${WU()}`;
   document.getElementById('ceilingInput').value = state.settings.loadCeiling || '';
   document.getElementById('rotationWeeksInput').value = state.settings.rotationWeeks || 0;
   renderPriorityChips();
@@ -2092,6 +2187,37 @@ function renderPriorityChips(){
     };
   });
 }
+
+const bpAddBtn = document.getElementById('bpAdd');
+if(bpAddBtn) bpAddBtn.onclick = ()=>{
+  const sys = parseInt(document.getElementById('bpSys').value);
+  const dia = parseInt(document.getElementById('bpDia').value);
+  if(!sys || !dia){ showToast('Enter both numbers'); return; }
+  if(sys < 50 || sys > 260 || dia < 30 || dia > 200){ showToast('Check those numbers'); return; }
+  addHealthCheck({ kind:'bp', systolic: sys, diastolic: dia });
+  document.getElementById('bpSys').value = '';
+  document.getElementById('bpDia').value = '';
+  renderHealthRecords();
+  showToast('Reading logged');
+};
+
+const bloodsAddBtn = document.getElementById('bloodsAdd');
+if(bloodsAddBtn) bloodsAddBtn.onclick = ()=>{
+  const note = document.getElementById('bloodsNote').value.trim().slice(0, 120);
+  addHealthCheck({ kind:'bloods', notes: note });
+  document.getElementById('bloodsNote').value = '';
+  renderHealthRecords();
+  showToast('Bloods logged');
+};
+
+const targetWeightInput = document.getElementById('targetWeightInput');
+if(targetWeightInput) targetWeightInput.onchange = (e)=>{
+  const v = parseFloat(e.target.value);
+  state.settings.targetWeight = (v > 0) ? v : null;
+  e.target.value = state.settings.targetWeight || '';
+  saveState(state);
+  if(currentView === 'body') renderTargetCard();
+};
 
 const intakeCloseBtn = document.getElementById('intakeClose');
 if(intakeCloseBtn) intakeCloseBtn.onclick = ()=>{
