@@ -49,6 +49,10 @@ jobs:
               <array>
                   <string>Default</string>
               </array>
+              <key>com.apple.developer.healthkit</key>
+              <true/>
+              <key>com.apple.developer.healthkit.access</key>
+              <array/>
           </dict>
           </plist>
           PLIST
@@ -73,6 +77,11 @@ jobs:
       - name: Set export compliance flag
         run: |
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" ios/App/App/Info.plist
+
+      - name: Add HealthKit usage descriptions
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'Foundry reads your step count, bodyweight, and blood pressure so you do not have to type them in twice. Nothing is shared with anyone.'" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'Foundry does not write anything to Health. This entry exists because the framework requires it.'" ios/App/App/Info.plist
 
       - name: Import signing certificate
         env:

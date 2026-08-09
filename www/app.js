@@ -2229,6 +2229,54 @@ if(intakePrevBtn) intakePrevBtn.onclick = ()=> shiftIntakeDate(-1);
 const intakeNextBtn = document.getElementById('intakeNext');
 if(intakeNextBtn) intakeNextBtn.onclick = ()=> shiftIntakeDate(1);
 
+const healthToggle = document.getElementById('healthToggle');
+if(healthToggle) healthToggle.onclick = async ()=>{
+  const turningOn = !state.settings.healthOn;
+  if(turningOn){
+    if(!window.FoundryHealth || !await window.FoundryHealth.available()){
+      showToast('Apple Health is not available here');
+      return;
+    }
+    // iOS shows the permission sheet once. After that it is changed in
+    // Settings, Health, Data Access, not from inside the app.
+    await window.FoundryHealth.requestAccess(healthTypesWanted());
+  }
+  state.settings.healthOn = turningOn;
+  saveState(state);
+  renderHealthSettingsUI();
+  hapticLight();
+  if(turningOn) syncFromHealth({});
+};
+
+[['healthStepsToggle','healthSteps'], ['healthWeightToggle','healthWeight'], ['healthBpToggle','healthBp']]
+  .forEach(([id, key])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.onclick = async ()=>{
+      state.settings[key] = !state.settings[key];
+      el.classList.toggle('on', state.settings[key]);
+      saveState(state);
+      hapticLight();
+      // Newly enabled types need their own permission, since the first sheet
+      // only covered whatever was ticked at the time.
+      if(state.settings[key] && state.settings.healthOn && window.FoundryHealth){
+        await window.FoundryHealth.requestAccess(healthTypesWanted());
+        syncFromHealth({ quiet: true });
+      }
+    };
+  });
+
+const healthSyncBtn = document.getElementById('healthSyncBtn');
+if(healthSyncBtn) healthSyncBtn.onclick = async ()=>{
+  healthSyncBtn.textContent = 'Syncing...';
+  healthSyncBtn.disabled = true;
+  try{ await syncFromHealth({}); }
+  finally{
+    healthSyncBtn.textContent = 'Sync From Health Now';
+    healthSyncBtn.disabled = false;
+  }
+};
+
 const budgetsToggle = document.getElementById('budgetsToggle');
 if(budgetsToggle) budgetsToggle.onclick = ()=>{
   state.settings.budgetsOn = !state.settings.budgetsOn;
