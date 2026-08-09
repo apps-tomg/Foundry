@@ -6,6 +6,7 @@
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.4.1",
     "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/preferences": "^8.0.1",
     "capacitor-native-settings": "^8.1.0"
   },
   "devDependencies": {

@@ -37,6 +37,8 @@ function loadSyncCfg(){
 function saveSyncCfg(cfg){
   if(cfg) localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(cfg));
   else localStorage.removeItem(SYNC_CFG_KEY);
+  // Mirror the session too, otherwise an eviction silently signs the person out.
+  if(typeof mirrorToDurable === 'function') mirrorToDurable(SYNC_CFG_KEY, cfg ? JSON.stringify(cfg) : null);
 }
 function syncEnabled(){
   const cfg = loadSyncCfg();
@@ -341,6 +343,7 @@ async function pullStateFromCloud(){
       state.settings = Object.assign(defaultState().settings, (remote.data.settings) || {});
       state.sessions = (remote.data.sessions || []).map(migrateSession);
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      if(typeof scheduleDurableMirror === 'function') scheduleDurableMirror();
       if(typeof applyTheme === 'function') applyTheme();
       updateStreak(state);
       render();

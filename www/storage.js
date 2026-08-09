@@ -1,5 +1,81 @@
 const STORE_KEY = "ironPlanData_v3";
 
+// ---------- Durable storage ----------
+// iOS treats localStorage in a WKWebView as a disposable cache and will evict
+// it without warning, usually under storage pressure. For a signed-in user the
+// cloud copy covers that, but anyone who chose "keep data on this device" could
+// lose everything. Capacitor Preferences writes to native UserDefaults, which
+// iOS does not evict, so it acts as the durable backing store.
+//
+// localStorage stays as the synchronous working copy, because Preferences is
+// async and every read site in this app is synchronous. So: read through
+// localStorage, write to both, and on boot restore localStorage from the native
+// store if it has gone missing or fallen behind. On the web there is no plugin,
+// so all of this quietly does nothing and behaviour is unchanged.
+const DURABLE_KEYS = [STORE_KEY, 'foundrySyncCfg_v1', 'foundryOnboarded', 'foundryTourSeen', 'foundryWelcomeDismissed'];
+
+function prefsPlugin(){
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) || null;
+}
+
+// Fire and forget. A failed durable write must never break the app, since the
+// synchronous localStorage write has already succeeded by this point.
+function mirrorToDurable(key, value){
+  const P = prefsPlugin();
+  if(!P) return;
+  try{
+    if(value === null || value === undefined) P.remove({ key }).catch(()=>{});
+    else P.set({ key, value }).catch(()=>{});
+  }catch(e){}
+}
+
+let durableMirrorTimer = null;
+function scheduleDurableMirror(){
+  if(!prefsPlugin()) return;
+  clearTimeout(durableMirrorTimer);
+  durableMirrorTimer = setTimeout(()=>{
+    DURABLE_KEYS.forEach(k => mirrorToDurable(k, localStorage.getItem(k)));
+  }, 400);
+}
+
+// Runs once, before the app reads state for real. Restores any key that
+// localStorage has lost, and for the main blob prefers whichever copy has the
+// newer updatedAt, so a stale native copy can never overwrite fresher local work.
+async function hydrateFromDurable(){
+  const P = prefsPlugin();
+  if(!P) return false;
+  let restored = false;
+  for(const key of DURABLE_KEYS){
+    try{
+      const res = await P.get({ key });
+      const durable = res && res.value;
+      if(durable === null || durable === undefined) continue;
+      const local = localStorage.getItem(key);
+      if(local === null){
+        localStorage.setItem(key, durable);
+        restored = true;
+        continue;
+      }
+      if(key === STORE_KEY){
+        try{
+          const a = JSON.parse(durable), b = JSON.parse(local);
+          if((a.updatedAt || '') > (b.updatedAt || '')){
+            localStorage.setItem(key, durable);
+            restored = true;
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+  return restored;
+}
+
+function clearDurable(){
+  const P = prefsPlugin();
+  if(!P) return;
+  DURABLE_KEYS.forEach(key => { try{ P.remove({ key }).catch(()=>{}); }catch(e){} });
+}
+
 function defaultState(){
   return {
     planKey: "3x20",
@@ -86,6 +162,7 @@ function saveState(state){
   try{
     state.updatedAt = new Date().toISOString();
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    scheduleDurableMirror();
     if(typeof scheduleSyncPush === 'function') scheduleSyncPush();
     return true;
   }catch(e){

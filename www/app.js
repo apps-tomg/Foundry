@@ -2852,11 +2852,21 @@ document.getElementById('lockInput').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') tryUnlock();
 });
 
-if(state.settings.passcodeEnabled && state.settings.passcodeHash){
-  document.getElementById('lockScreen').style.display = 'flex';
-} else {
-  initApp();
-}
+// Boot is async now: check the durable native store before trusting
+// localStorage, since iOS may have evicted it since the last launch. The splash
+// screen covers this, and it is a single native read so it is fast.
+(async function boot(){
+  try{
+    const restored = await hydrateFromDurable();
+    if(restored) state = loadState();
+  }catch(e){ /* fall through to whatever localStorage has */ }
+
+  if(state.settings.passcodeEnabled && state.settings.passcodeHash){
+    document.getElementById('lockScreen').style.display = 'flex';
+  } else {
+    initApp();
+  }
+})();
 
 // ---------- Custom plan builder ----------
 
@@ -4080,6 +4090,7 @@ async function resetAllData(){
 
   // Fresh state. saveState stamps updatedAt, making this newer than the cloud
   // copy so a background pull can never resurrect the old data.
+  clearDurable();
   state = defaultState();
   saveState(state);
   localStorage.removeItem(ONBOARD_KEY);
@@ -4169,7 +4180,9 @@ document.getElementById('deleteAccountBtn').onclick = async ()=>{
     if(typeof guided !== 'undefined' && guided) stopGuided(false);
     if(typeof warmup !== 'undefined' && warmup) stopWarmup();
     syncSignOut();
+    clearDurable();
     state = defaultState();
+    clearDurable();
     localStorage.removeItem(STORE_KEY);
     localStorage.removeItem(ONBOARD_KEY);
     localStorage.removeItem(TOUR_KEY);
