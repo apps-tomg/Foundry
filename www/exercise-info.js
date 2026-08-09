@@ -4,6 +4,99 @@
 // with a fallback message rather than an error.
 const EXERCISE_INFO = {
 
+  // ---------- Machines and cables ----------
+  "Leg Press": {
+    steps: [
+      "Set the seat so your knees sit at roughly ninety degrees when your feet are on the platform.",
+      "Place your feet about shoulder width apart, mid-platform, heels flat.",
+      "Release the safety catches and lower the platform until your knees reach about ninety degrees.",
+      "Drive through the whole foot to push back out, stopping just short of locking your knees."
+    ],
+    tip: "Keep your lower back flat against the pad throughout. If your hips start to curl under at the bottom, you have gone too deep."
+  },
+  "Chest Press Machine": {
+    steps: [
+      "Set the seat height so the handles sit level with the middle of your chest.",
+      "Sit back with your shoulder blades pinned against the pad and feet flat.",
+      "Press the handles forward until your arms are almost straight, without snapping the elbows.",
+      "Return under control until you feel a stretch across the chest, then press again."
+    ],
+    tip: "If the handles are above nipple height you will turn this into a shoulder press. Drop the seat a notch."
+  },
+  "Seated Cable Row": {
+    steps: [
+      "Sit facing the stack with feet braced and a slight bend in your knees.",
+      "Take the handle with arms extended and your chest tall, torso close to upright.",
+      "Pull the handle to your stomach, leading with your elbows and squeezing your shoulder blades together.",
+      "Let the handle travel back out until your arms are straight, keeping your torso still."
+    ],
+    tip: "Resist the urge to rock backwards for extra weight. If your torso is swinging, the load is too heavy."
+  },
+  "Cable Lateral Raise": {
+    steps: [
+      "Set the pulley to the lowest position and stand side-on with the cable crossing in front of you.",
+      "Take the handle in the hand furthest from the stack, arm hanging across your body.",
+      "Raise your arm out to the side until your hand is roughly shoulder height, elbow slightly soft.",
+      "Lower slowly all the way back across your body, then repeat."
+    ],
+    tip: "This is a small muscle, so progress will be slow. Light weight with a genuine pause at the top beats heavy swinging."
+  },
+  "Cable Triceps Pushdown": {
+    steps: [
+      "Attach a rope or bar to a high pulley and stand close, elbows tucked at your sides.",
+      "Start with your forearms at about parallel to the floor.",
+      "Push down until your arms are fully straight, keeping your elbows pinned in place.",
+      "Let the weight return until your forearms are parallel again, without letting your elbows drift forward."
+    ],
+    tip: "Only the forearm should move. If your elbows are travelling, you are using your chest and shoulders."
+  },
+  "Seated Leg Curl": {
+    steps: [
+      "Set the back pad so your knees line up with the machine's pivot point.",
+      "Place the shin pad just above your heels and secure the thigh pad.",
+      "Curl your heels down and under as far as the machine allows.",
+      "Return slowly until your legs are almost straight, keeping tension throughout."
+    ],
+    tip: "Point your toes up towards your shins. It shifts the work onto the hamstrings rather than the calves."
+  },
+  "Lat Pulldown": {
+    steps: [
+      "Set the thigh pad snug so you stay seated, and take a grip slightly wider than shoulder width.",
+      "Sit tall with a very slight lean back, chest lifted.",
+      "Pull the bar down to your upper chest, driving your elbows down towards your hips.",
+      "Let the bar rise until your arms are straight and you feel your lats stretch, then repeat."
+    ],
+    tip: "Think about pulling your elbows into your back pockets rather than pulling with your hands."
+  },
+  "Shoulder Press Machine": {
+    steps: [
+      "Set the seat so the handles start at about shoulder or ear height.",
+      "Sit with your back flat against the pad and feet planted.",
+      "Press upwards until your arms are nearly straight overhead.",
+      "Lower under control back to shoulder height."
+    ],
+    tip: "Keep your ribs down rather than arching your lower back to help the weight up."
+  },
+  "Cable Curl": {
+    steps: [
+      "Set the pulley low and stand a step back from the stack, holding the bar or handles.",
+      "Keep your elbows at your sides and your upper arms still.",
+      "Curl up towards your shoulders, squeezing at the top.",
+      "Lower all the way until your arms are straight, resisting on the way down."
+    ],
+    tip: "The cable keeps tension at the top, unlike a dumbbell. Slow the lowering phase to make the most of it."
+  },
+  "Leg Extension": {
+    steps: [
+      "Set the seat so your knees align with the pivot and the shin pad sits just above your ankles.",
+      "Hold the handles and keep your back against the pad.",
+      "Straighten your legs until they are fully extended, pausing briefly at the top.",
+      "Lower under control without letting the weight stack crash down."
+    ],
+    tip: "A one second hold at the top does more for the quads than adding a plate."
+  },
+
+
   // ---------- Chest ----------
   "DB Bench Press": {
     steps: [
@@ -770,6 +863,18 @@ const EXERCISE_INFO = {
 // shoulders, arms, core), this lists the actual muscles each exercise trains,
 // shown as a "Works" line above the steps.
 const EXERCISE_MUSCLES = {
+  // Machines and cables
+  "Leg Press": "Quads, glutes, hamstrings",
+  "Chest Press Machine": "Chest, front shoulders, triceps",
+  "Seated Cable Row": "Mid back, lats, biceps, rear shoulders",
+  "Cable Lateral Raise": "Side shoulders",
+  "Cable Triceps Pushdown": "Triceps",
+  "Seated Leg Curl": "Hamstrings",
+  "Lat Pulldown": "Lats, mid back, biceps",
+  "Shoulder Press Machine": "Front and side shoulders, triceps",
+  "Cable Curl": "Biceps, forearms",
+  "Leg Extension": "Quads",
+
   // Chest
   "DB Bench Press": "Chest, front shoulders, triceps",
   "Incline DB Press": "Upper chest, front shoulders, triceps",

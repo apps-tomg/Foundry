@@ -1,6 +1,72 @@
 const PLATE_SET = [10, 5, 2.5, 1.25, 0.5];
 
 const PLANS = {
+  // Machine and cable led, for a full gym. Alternates A/B.
+  "gym2": {
+    label: "Gym 2 Day",
+    desc: "45 min, machines and cables, A/B alternating",
+    minutes: 45,
+    days: [
+      { name:"Gym A", exercises:[
+        {name:"Leg Press", target:"3 x 12", muscle:"legs"},
+        {name:"Chest Press Machine", target:"3 x 12", muscle:"chest"},
+        {name:"Seated Cable Row", target:"3 x 12", muscle:"back"},
+        {name:"Cable Lateral Raise", target:"3 x 15", muscle:"shoulders", superset:"S1"},
+        {name:"Cable Triceps Pushdown", target:"3 x 15", muscle:"arms", superset:"S1"},
+      ]},
+      { name:"Gym B", exercises:[
+        {name:"Seated Leg Curl", target:"3 x 12", muscle:"legs"},
+        {name:"Lat Pulldown", target:"3 x 12", muscle:"back"},
+        {name:"Shoulder Press Machine", target:"3 x 12", muscle:"shoulders"},
+        {name:"Cable Curl", target:"3 x 12", muscle:"arms", superset:"S1"},
+        {name:"Leg Extension", target:"3 x 15", muscle:"legs", superset:"S1"},
+      ]},
+    ]
+  },
+  // Fixed dumbbells and a bench. The usual fallback when the gym is out.
+  "home2": {
+    label: "Home 2 Day",
+    desc: "30 min, dumbbells and bench, A/B alternating",
+    minutes: 30,
+    days: [
+      { name:"Home A", exercises:[
+        {name:"Goblet Squat", target:"3 x 18", muscle:"legs"},
+        {name:"DB Bench Press", target:"3 x 12", muscle:"chest"},
+        {name:"Pull-Up", target:"3 x AMRAP", muscle:"back", superset:"S1"},
+        {name:"DB Lateral Raise", target:"3 x 15", muscle:"shoulders", superset:"S1"},
+      ]},
+      { name:"Home B", exercises:[
+        {name:"DB Bulgarian Split Squat", target:"3 x 10", muscle:"legs"},
+        {name:"DB Shoulder Press", target:"3 x 12", muscle:"shoulders"},
+        {name:"One-Arm DB Row", target:"3 x 12", muscle:"back", superset:"S1"},
+        {name:"DB Incline Curl", target:"3 x 12", muscle:"arms", superset:"S1"},
+      ]},
+    ]
+  },
+  // No equipment at all. Hotel rooms, spare rooms, anywhere.
+  "travel1": {
+    label: "Travel",
+    desc: "20 min, no equipment needed",
+    minutes: 20,
+    days: [
+      { name:"Travel", exercises:[
+        {name:"Bodyweight Squat", target:"3 x 20", muscle:"legs"},
+        {name:"Push-Up", target:"3 x AMRAP", muscle:"chest"},
+        {name:"Australian Row", target:"3 x AMRAP", muscle:"back"},
+      ]},
+    ]
+  },
+  // The floor. One movement, done badly, still counts.
+  "floor1": {
+    label: "5 Minute Floor",
+    desc: "One exercise. Anything beats nothing",
+    minutes: 5,
+    days: [
+      { name:"Floor", exercises:[
+        {name:"Bodyweight Squat", target:"2 x 20", muscle:"legs"},
+      ]},
+    ]
+  },
   "3x20": {
     label: "3 Day",
     desc: "20 min sessions, full body each day",
@@ -106,6 +172,19 @@ const PLANS = {
 };
 
 const SUBSTITUTIONS = {
+  // Machines and cables, with a same-equipment option listed first so a swap
+  // does not quietly move someone onto kit they would rather avoid.
+  "Leg Press": ["Leg Extension", "Goblet Squat"],
+  "Leg Extension": ["Leg Press", "Goblet Squat"],
+  "Seated Leg Curl": ["Leg Press", "DB Romanian Deadlift"],
+  "Chest Press Machine": ["DB Bench Press", "Push-Up"],
+  "Seated Cable Row": ["Lat Pulldown", "One-Arm DB Row"],
+  "Lat Pulldown": ["Seated Cable Row", "Pull-Up"],
+  "Shoulder Press Machine": ["Cable Lateral Raise", "DB Shoulder Press"],
+  "Cable Lateral Raise": ["Shoulder Press Machine", "DB Lateral Raise"],
+  "Cable Curl": ["Cable Triceps Pushdown", "DB Incline Curl"],
+  "Cable Triceps Pushdown": ["Cable Curl", "DB Tricep Extension"],
+
   "DB Bench Press": ["Incline DB Press", "Flat DB Flye"],
   "Incline DB Press": ["DB Bench Press", "Flat DB Flye"],
   "Flat DB Flye": ["DB Bench Press", "Incline DB Press"],

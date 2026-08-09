@@ -210,6 +210,11 @@
 
 <div id="logView">
   <div id="prBanner"></div>
+  <div class="tier-strip" id="tierStrip" style="display:none;">
+    <span class="tier-label">Today</span>
+    <span class="tier-current" id="tierCurrent"></span>
+    <button class="tier-downgrade" id="tierDowngradeBtn" type="button"></button>
+  </div>
   <div class="program-strip" id="programStrip" style="display:none;">
     <span class="program-chip" id="programChip"></span>
   </div>
@@ -408,6 +413,11 @@
     <label class="schedule-label" style="margin-top:14px; display:block;">What do you follow?</label>
     <div id="planOptions"></div>
     <div class="plan-cycle-hint" id="planCycleHint" style="display:none;"></div>
+
+    <h3 class="section-h" style="margin-top:20px;">Fallback Ladder</h3>
+    <div class="tier-ladder-hint">Order these from most to least equipment. When you can't manage the top one, Foundry offers the next one down instead of letting you skip.</div>
+    <div id="tierLadderList"></div>
+    <button class="row-tools-solo" id="tierAddBtn" type="button" style="width:100%;">+ Add Fallback</button>
     <button class="add-exercise-btn" id="builderOpenBtn" type="button">+ Create Custom Plan</button>
     <div class="plan-builder" id="planBuilder"></div>
 

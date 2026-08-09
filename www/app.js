@@ -20,6 +20,95 @@ function currentSessionSeconds(){
 
 function currentPlan(){ return getPlan(state, state.planKey); }
 
+// ---------- Tiers ----------
+// A tier ladder is just an ordered list of plan keys, most equipped first.
+// Because a logged session already records `plan`, the tier a session was
+// done at is captured with no schema change. Switching tier simply moves
+// state.planKey along the ladder, so the active tier is always derived, never
+// stored separately, which means the two can't drift apart.
+function tierLadder(){
+  const all = getAllPlans(state);
+  return (state.tierLadder || []).filter(k => all[k]);
+}
+function tiersActive(){ return tierLadder().length >= 2; }
+function activeTierIndex(){ return tierLadder().indexOf(state.planKey); }
+
+function switchTier(i){
+  const ladder = tierLadder();
+  if(i < 0 || i >= ladder.length) return;
+  state.planKey = ladder[i];
+  // Day rotation is shared across tiers on purpose: the ladder is meant to be
+  // the same session at different equipment levels, so an A day stays an A day.
+  const days = currentPlan().days.length;
+  if(activeDay >= days) activeDay = 0;
+  state.lastDay = activeDay;
+  saveState(state);
+  resetSessionTimer();
+  hapticLight();
+  render();
+}
+
+// The core rule from the plan: never offer a skip without offering a
+// downgrade first. Steps down one rung, or says so if already on the floor.
+function downgradeTier(){
+  const ladder = tierLadder();
+  const i = activeTierIndex();
+  if(i === -1){ showToast('Set up a fallback ladder in Settings first'); return; }
+  if(i >= ladder.length - 1){
+    showToast('Already on the shortest version. Do that instead of nothing.');
+    return;
+  }
+  const next = getPlan(state, ladder[i + 1]);
+  if(!confirm(`Drop to ${next.label}?\n\n${next.desc}\n\nThis still counts as a session.`)) return;
+  switchTier(i + 1);
+  showToast(`Switched to ${next.label}`);
+}
+
+// Seeds a sensible default ladder the first time, rather than making the
+// person build one from nothing: whatever plan they're on, then a shorter
+// fallback, then the floor.
+function defaultLadderSeed(){
+  const all = getAllPlans(state);
+  const seed = [state.planKey];
+  ['home2','travel1','floor1'].forEach(k => {
+    if(all[k] && !seed.includes(k)) seed.push(k);
+  });
+  return seed;
+}
+
+// Machine setup recall. A pin number is what makes a machine session
+// repeatable, so it persists per exercise name and prefills next time.
+(function initSetupFieldSaving(){
+  const card = document.getElementById('dayCard');
+  if(!card) return;
+  card.addEventListener('change', (e)=>{
+    const input = e.target.closest('.setup-field');
+    if(!input) return;
+    const exName = input.dataset.ex;
+    if(!exName) return;
+    if(!state.machineSetups) state.machineSetups = {};
+    const val = input.value.trim().slice(0, 60);
+    if(val) state.machineSetups[exName] = val;
+    else delete state.machineSetups[exName];
+    saveState(state);
+  });
+})();
+
+function renderTierStrip(){
+  const wrap = document.getElementById('tierStrip');
+  if(!wrap) return;
+  if(!tiersActive()){ wrap.style.display = 'none'; return; }
+  const ladder = tierLadder();
+  const i = activeTierIndex();
+  const plan = currentPlan();
+  wrap.style.display = 'flex';
+  document.getElementById('tierCurrent').textContent = plan.label;
+  const btn = document.getElementById('tierDowngradeBtn');
+  const atFloor = i >= ladder.length - 1;
+  btn.textContent = atFloor ? 'On the floor version' : "Can't manage this today?";
+  btn.disabled = atFloor;
+}
+
 function formatTime(totalSeconds){
   const m = Math.floor(totalSeconds / 60).toString().padStart(2,'0');
   const s = (totalSeconds % 60).toString().padStart(2,'0');
@@ -262,6 +351,10 @@ function renderDay(){
       <div class="info-panel">${buildInfoPanelHTML(effective.name)}</div>
       ${best ? `<div class="best">BEST E1RM ${best.e1rm}, ${best.weight}x${best.reps}${trend}</div>` : ''}
       ${suggestion ? `<div class="suggestion">${suggestion}</div>` : ''}
+      ${typeof BODYWEIGHT_EXERCISES !== 'undefined' && BODYWEIGHT_EXERCISES.has(effective.name) ? '' : `
+      <input type="text" class="setup-field" data-ex="${effective.name.replace(/"/g,'&quot;')}"
+             placeholder="Setup: pin, seat, notch" maxlength="60"
+             value="${((state.machineSetups || {})[effective.name] || '').replace(/"/g,'&quot;')}">`}
       <div class="sets">${buildSetRowsHTML(setCount, lastSessionSets(state, effective.name), effective.name)}</div>
       <textarea class="note-field" placeholder="Notes, form cues, how it felt"></textarea>
       <div class="row-tools">
@@ -368,6 +461,9 @@ function renderDay(){
       </div>
       <div class="info-panel">${buildInfoPanelHTML(ex.name)}</div>
       ${best ? `<div class="best">BEST E1RM ${best.e1rm}, ${best.weight}x${best.reps}</div>` : ''}
+      <input type="text" class="setup-field" data-ex="${ex.name.replace(/"/g,'&quot;')}"
+             placeholder="Setup: pin, seat, notch" maxlength="60"
+             value="${((state.machineSetups || {})[ex.name] || '').replace(/"/g,'&quot;')}">
       <div class="sets">${buildSetRowsHTML(setCount, lastSessionSets(state, ex.name), ex.name)}</div>
       <textarea class="note-field" placeholder="Notes, form cues, how it felt"></textarea>
       <div class="row-tools">
@@ -545,7 +641,12 @@ function logSession(){
         anyLogged = true;
       }
     });
-    if(sets.length) record.lifts[exName] = { sets, note };
+    if(sets.length){
+      record.lifts[exName] = { sets, note };
+      const setupInput = block.querySelector('.setup-field');
+      const setup = setupInput ? setupInput.value.trim() : '';
+      if(setup) record.lifts[exName].setup = setup;
+    }
   });
 
   if(!anyLogged){ showToast('Log at least one set first'); return; }
@@ -669,6 +770,7 @@ function renderHistory(){
 
 function render(){
   activeDay = Math.min(activeDay, currentPlan().days.length - 1);
+  renderTierStrip();
   renderTabs();
   renderCircuitToggle();
   renderDay();
@@ -1299,7 +1401,47 @@ document.getElementById('bwAdd').onclick = ()=>{
 
 // ---------- Settings view ----------
 
+function renderTierLadderUI(){
+  const el = document.getElementById('tierLadderList');
+  if(!el) return;
+  const all = getAllPlans(state);
+  const ladder = state.tierLadder || [];
+  const options = Object.entries(all);
+
+  if(!ladder.length){
+    el.innerHTML = '<div class="tier-empty">No fallbacks set. Add one so a missed session becomes a shorter session instead of nothing.</div>';
+  } else {
+    el.innerHTML = ladder.map((key, idx) => `
+      <div class="tier-row">
+        <span class="tier-rank num">${idx + 1}</span>
+        <select class="tier-select" data-idx="${idx}">
+          ${options.map(([k, p]) => `<option value="${k}" ${k === key ? 'selected' : ''}>${p.label}</option>`).join('')}
+        </select>
+        <button class="tier-remove" type="button" data-idx="${idx}">Remove</button>
+      </div>
+    `).join('');
+  }
+
+  el.querySelectorAll('.tier-select').forEach(sel=>{
+    sel.onchange = ()=>{
+      state.tierLadder[parseInt(sel.dataset.idx)] = sel.value;
+      saveState(state);
+      renderTierLadderUI();
+      renderTierStrip();
+    };
+  });
+  el.querySelectorAll('.tier-remove').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.tierLadder.splice(parseInt(btn.dataset.idx), 1);
+      saveState(state);
+      renderTierLadderUI();
+      renderTierStrip();
+    };
+  });
+}
+
 function renderSettings(){
+  renderTierLadderUI();
   const el = document.getElementById('planOptions');
   el.innerHTML = '';
   Object.entries(getAllPlans(state)).forEach(([key, plan])=>{

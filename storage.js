@@ -16,6 +16,8 @@ function defaultState(){
     dayOrder: {},
     customExercises: {},
     customPlans: {},
+    tierLadder: [],
+    machineSetups: {},
     program: null,
     lastRecapWeek: null,
     soreFlags: {},
@@ -51,6 +53,8 @@ function loadState(){
       merged.dayOrder = parsed.dayOrder || {};
       merged.customExercises = parsed.customExercises || {};
       merged.customPlans = parsed.customPlans || {};
+      merged.tierLadder = parsed.tierLadder || [];
+      merged.machineSetups = parsed.machineSetups || {};
       merged.soreFlags = parsed.soreFlags || {};
       merged.circuitMode = parsed.circuitMode || {};
       merged.cardioSessions = parsed.cardioSessions || [];
