@@ -94,6 +94,50 @@ function defaultLadderSeed(){
   });
 })();
 
+function trainedToday(){
+  const today = new Date().toDateString();
+  return state.sessions.some(s => new Date(s.date).toDateString() === today);
+}
+
+function scheduledToday(){
+  const sched = state.settings.trainingDays;
+  if(!Array.isArray(sched) || !sched.length) return true;   // no schedule set, every day counts
+  return sched.includes(new Date().getDay());
+}
+
+// Only escalates when it is actually actionable: a scheduled day, nothing
+// logged yet, and at least one prior miss. Stays silent once you have trained,
+// on rest days, during a deload, and entirely when coach tone is off.
+function renderEscalation(){
+  const wrap = document.getElementById('escalationBanner');
+  if(!wrap) return;
+  const missed = missedScheduledInARow();
+  const show = coachTone() !== 'off' && missed >= 1 && scheduledToday() && !trainedToday();
+  if(!show){ wrap.style.display = 'none'; return; }
+
+  const hard = coachTone() === 'hard';
+  document.getElementById('escalationText').textContent = missed === 1
+    ? (hard ? "One missed already. This one isn't optional." : 'One missed session. Today gets you back on track.')
+    : (hard ? `${missed} missed in a row. This is where it usually stops for good.` : `${missed} missed in a row. Start with the shortest version.`);
+
+  const btn = document.getElementById('escalationDowngrade');
+  const ladder = tierLadder();
+  const i = activeTierIndex();
+  const canDrop = tiersActive() && i > -1 && i < ladder.length - 1;
+  btn.style.display = canDrop ? 'block' : 'none';
+  if(canDrop) btn.textContent = `Do ${getPlan(state, ladder[i + 1]).label} instead`;
+  wrap.style.display = 'block';
+}
+
+function travelSuggestion(){
+  if(!state.settings.travelMode || !tiersActive()) return null;
+  const ladder = tierLadder();
+  const travelIdx = ladder.indexOf('travel1');
+  const i = activeTierIndex();
+  if(travelIdx === -1 || i === travelIdx || i > travelIdx) return null;
+  return { idx: travelIdx, label: getPlan(state, ladder[travelIdx]).label };
+}
+
 function renderTierStrip(){
   const wrap = document.getElementById('tierStrip');
   if(!wrap) return;
@@ -104,9 +148,19 @@ function renderTierStrip(){
   wrap.style.display = 'flex';
   document.getElementById('tierCurrent').textContent = plan.label;
   const btn = document.getElementById('tierDowngradeBtn');
+  const travel = travelSuggestion();
+  if(travel){
+    // Travel mode offers the jump rather than forcing it, because a hotel gym
+    // means the top tier is still on the table.
+    btn.textContent = `Travelling? Use ${travel.label}`;
+    btn.disabled = false;
+    btn.onclick = ()=> switchTier(travel.idx);
+    return;
+  }
   const atFloor = i >= ladder.length - 1;
   btn.textContent = atFloor ? 'On the floor version' : "Can't manage this today?";
   btn.disabled = atFloor;
+  btn.onclick = ()=> downgradeTier();
 }
 
 function formatTime(totalSeconds){
@@ -727,7 +781,7 @@ function setRing(id, pct){
 
 function renderStats(){
   document.getElementById('planTitle').textContent = `Foundry // ${currentPlan().label}`;
-  document.getElementById('planSub').textContent = `${currentPlan().minutes} min sessions, dumbbells + bench`;
+  document.getElementById('planSub').textContent = currentPlan().desc || `${currentPlan().minutes} min sessions`;
 
   const map = weeklyVolumes(state);
   const keys = Object.keys(map).sort();
@@ -736,7 +790,9 @@ function renderStats(){
 
   const thisWeekKey = isoWeekKey(new Date().toISOString());
   const sessionsThisWeek = state.sessions.filter(s => isoWeekKey(s.date) === thisWeekKey).length;
-  const sessionsTarget = currentPlan().days.length;
+  const sessionsTarget = (state.settings.weeklySessionTarget)
+    || (Array.isArray(state.settings.trainingDays) && state.settings.trainingDays.length)
+    || currentPlan().days.length;
 
   const streak = state.streak || 0;
   const streakTarget = 7;
@@ -748,6 +804,27 @@ function renderStats(){
   document.getElementById('ringVolumeLabel').textContent = `${Math.round(thisWeekVolume)}${WU()}`;
   document.getElementById('ringSessionsLabel').textContent = `${sessionsThisWeek}/${sessionsTarget}`;
   document.getElementById('ringStreakLabel').textContent = `${streak}d`;
+  renderFloorNote(sessionsThisWeek);
+}
+
+// The floor is the real success metric: two sessions minimum, never zero.
+// Only surfaces from Thursday onward, when it is still actionable but the week
+// is genuinely at risk, rather than reminding you every Monday morning.
+function renderFloorNote(sessionsThisWeek){
+  const el = document.getElementById('floorNote');
+  if(!el) return;
+  const floor = state.settings.weeklySessionFloor || 0;
+  const dow = new Date().getDay();          // 0 Sun, 4 Thu
+  const lateWeek = (dow === 0 || dow >= 4);
+  if(!floor || sessionsThisWeek >= floor || !lateWeek){
+    el.style.display = 'none';
+    return;
+  }
+  const short = floor - sessionsThisWeek;
+  el.style.display = 'block';
+  el.textContent = sessionsThisWeek === 0
+    ? `No sessions logged this week. The floor is ${floor}. Even the short version counts.`
+    : `${short} more to clear this week's floor of ${floor}. Short version counts.`;
 }
 
 function renderHistory(){
@@ -770,6 +847,7 @@ function renderHistory(){
 
 function render(){
   activeDay = Math.min(activeDay, currentPlan().days.length - 1);
+  renderEscalation();
   renderTierStrip();
   renderTabs();
   renderCircuitToggle();
@@ -1359,10 +1437,6 @@ function renderBwChart(){
         {
           label: 'Trend', data: trendData, borderColor: theme.line, backgroundColor: theme.fill,
           fill:true, tension:0.3, pointRadius:0, borderWidth:2.5
-        },
-        {
-          label: 'Daily', data: rawData, borderColor: cssVar('--text'), backgroundColor: 'transparent',
-          fill:false, tension:0, pointRadius:2.5, pointBackgroundColor: cssVar('--text'), borderWidth:0, showLine:false
         }
       ]},
       options: {
@@ -1386,6 +1460,14 @@ function renderBwChart(){
   rateEl.innerHTML = rate === null
     ? `Trend: <b>${current}${WU()}</b>, log for a week to see a weekly rate`
     : `Trend: <b>${current}${WU()}</b>, ${rate > 0 ? '+' : ''}${rate}${WU()}/week`;
+
+  // Weekly average, never a single day. In the first three weeks of training
+  // or creatine, water retention can read as fat gain, so say so plainly.
+  const first = state.bodyweights.length ? new Date(state.bodyweights[0].date).getTime() : 0;
+  const daysLogging = first ? Math.floor((Date.now() - first) / 86400000) : 0;
+  if(daysLogging <= 21 && (rate === null || rate >= 0)){
+    rateEl.innerHTML += `<div class="bw-water-note">First few weeks of training or creatine hold extra water. That is not fat. Judge this after three weeks.</div>`;
+  }
 }
 
 document.getElementById('bwAdd').onclick = ()=>{
@@ -1500,6 +1582,9 @@ function renderSettings(){
 
   document.getElementById('restInput').value = state.settings.restSeconds;
   document.getElementById('goalInput').value = state.settings.weeklyGoal;
+  document.getElementById('sessionTargetInput').value = state.settings.weeklySessionTarget || 3;
+  document.getElementById('sessionFloorInput').value = state.settings.weeklySessionFloor || 0;
+  document.getElementById('travelToggle').classList.toggle('on', !!state.settings.travelMode);
   document.getElementById('handleInput').value = state.settings.handleWeight;
   document.getElementById('progressionInput').value = state.settings.progressionIncrement;
   document.querySelectorAll('#themeSegControl .seg-btn').forEach(btn=>{

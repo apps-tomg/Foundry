@@ -218,6 +218,11 @@
   <div class="program-strip" id="programStrip" style="display:none;">
     <span class="program-chip" id="programChip"></span>
   </div>
+  <div class="escalation" id="escalationBanner" style="display:none;">
+    <div class="escalation-text" id="escalationText"></div>
+    <button class="escalation-action" id="escalationDowngrade" type="button">Do the shorter version</button>
+  </div>
+  <div class="floor-note" id="floorNote" style="display:none;"></div>
   <div class="daytabs" id="daytabs"><div class="seg-pill" id="daytabsPill"></div></div>
   <div class="program-note" id="programNote" style="display:none;"></div>
   <button class="warmup-launch" id="warmupLaunchBtn">Guided Warm-Up &middot; <span id="warmupMins" class="num">4</span> min</button>
@@ -491,6 +496,18 @@
     <div class="field-row">
       <label>Notify when rest ends</label>
       <div class="toggle" id="notifyToggle"><div class="knob"></div></div>
+    </div>
+    <div class="field-row">
+      <label>Sessions per week, target</label>
+      <input type="number" id="sessionTargetInput" min="1" max="14" step="1">
+    </div>
+    <div class="field-row">
+      <label>Sessions per week, floor</label>
+      <input type="number" id="sessionFloorInput" min="0" max="14" step="1">
+    </div>
+    <div class="field-row">
+      <label>Travelling</label>
+      <div class="toggle" id="travelToggle"><div class="knob"></div></div>
     </div>
     <div class="field-row">
       <label data-unit-label="goal">Weekly volume goal, kg</label>

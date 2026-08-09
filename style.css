@@ -279,6 +279,27 @@ select, .text-input{
 .photo-thumb .d{font-size:10px; color:var(--muted); margin-top:4px; font-family:var(--font-mono);}
 
 .settings-block{padding:0 18px; margin-bottom:22px;}
+.escalation{
+  margin:12px 20px 0; padding:12px 14px; border-radius:var(--radius-md);
+  background:var(--accent); color:#ffffff;
+}
+.escalation-text{font-size:13px; font-weight:700; line-height:1.4; font-family:var(--font-display);}
+.escalation-action{
+  margin-top:10px; width:100%; background:rgba(255,255,255,0.22); border:none; color:#ffffff;
+  border-radius:999px; padding:9px; font-size:12px; font-weight:700;
+  font-family:var(--font-ui); cursor:pointer;
+}
+
+.floor-note{
+  margin:12px 20px 0; padding:10px 14px; border-radius:var(--radius-md);
+  background:var(--accent-soft); color:var(--accent);
+  font-size:12px; font-weight:600; line-height:1.4;
+}
+.bw-water-note{
+  margin-top:6px; font-size:11px; font-weight:500; color:var(--muted);
+  line-height:1.4; font-family:var(--font-ui);
+}
+
 .setup-field{
   width:100%; box-sizing:border-box; margin:0 0 8px;
   background:var(--card-2); border:1.5px solid transparent; color:var(--text);
