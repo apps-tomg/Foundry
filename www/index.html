@@ -218,6 +218,10 @@
   <div class="program-strip" id="programStrip" style="display:none;">
     <span class="program-chip" id="programChip"></span>
   </div>
+  <div class="rotation-prompt" id="rotationPrompt" style="display:none;">
+    <div class="rotation-text" id="rotationText"></div>
+    <button class="rotation-done" id="rotationDoneBtn" type="button">Rotated, reset the timer</button>
+  </div>
   <div class="escalation" id="escalationBanner" style="display:none;">
     <div class="escalation-text" id="escalationText"></div>
     <button class="escalation-action" id="escalationDowngrade" type="button">Do the shorter version</button>
@@ -496,6 +500,18 @@
     <div class="field-row">
       <label>Notify when rest ends</label>
       <div class="toggle" id="notifyToggle"><div class="knob"></div></div>
+    </div>
+    <div class="field-row">
+      <label data-unit-label="ceiling">Heaviest weight available, kg</label>
+      <input type="number" id="ceilingInput" min="0" step="0.5">
+    </div>
+    <div class="field-row">
+      <label>Rotate movements every, weeks</label>
+      <input type="number" id="rotationWeeksInput" min="0" max="26" step="1">
+    </div>
+    <div class="priority-block">
+      <div class="priority-label">Priority muscles, never dropped when time is short</div>
+      <div class="priority-chips" id="priorityChips"></div>
     </div>
     <div class="field-row">
       <label>Sessions per week, target</label>

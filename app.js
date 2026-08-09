@@ -138,6 +138,31 @@ function travelSuggestion(){
   return { idx: travelIdx, label: getPlan(state, ladder[travelIdx]).label };
 }
 
+function isPriorityMuscle(muscle){
+  const list = state.settings.priorityMuscles || [];
+  return !!muscle && list.includes(muscle);
+}
+
+// Weeks since the last rotation, so the same six movements don't run for a year.
+function rotationDue(){
+  const every = state.settings.rotationWeeks || 0;
+  if(!every) return null;
+  const since = state.settings.lastRotation || (state.sessions.length ? state.sessions[state.sessions.length - 1].date : null);
+  if(!since) return null;
+  const weeks = Math.floor((Date.now() - new Date(since).getTime()) / (7 * 86400000));
+  return weeks >= every ? weeks : null;
+}
+
+function renderRotationPrompt(){
+  const el = document.getElementById('rotationPrompt');
+  if(!el) return;
+  const weeks = rotationDue();
+  if(weeks === null){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  document.getElementById('rotationText').textContent =
+    `${weeks} weeks on the same movements. Swap one exercise per muscle group, keep the structure identical.`;
+}
+
 function renderTierStrip(){
   const wrap = document.getElementById('tierStrip');
   if(!wrap) return;
@@ -397,7 +422,7 @@ function renderDay(){
           <button class="reorder-down" ${pos === order.length - 1 ? 'disabled' : ''}>&or;</button>
         </div>
         <div class="ex-head">
-          <div class="ex-name">${effective.name}${effective.isOverride ? '<span class="swapped-tag">Swapped</span>' : ''}${isSore ? '<span class="sore-tag">Sore</span>' : ''}</div>
+          <div class="ex-name">${effective.name}${effective.isOverride ? '<span class="swapped-tag">Swapped</span>' : ''}${isSore ? '<span class="sore-tag">Sore</span>' : ''}${isPriorityMuscle(baseEx.muscle) ? '<span class="priority-tag">Priority</span>' : ''}</div>
           <div class="ex-target">${effective.target}</div>
         </div>
         <button class="info-btn" aria-label="How to perform this exercise">i</button>
@@ -704,6 +729,21 @@ function logSession(){
   });
 
   if(!anyLogged){ showToast('Log at least one set first'); return; }
+
+  // Priority muscles are the ones that must survive a rushed session, so say
+  // something if none got trained. A note, never a block.
+  const priority = state.settings.priorityMuscles || [];
+  if(priority.length){
+    const trained = new Set();
+    day.exercises.forEach((ex, idx)=>{
+      const eff = getEffectiveExercise(state, state.planKey, activeDay, idx, ex);
+      if(record.lifts[eff.name] && ex.muscle) trained.add(ex.muscle);
+    });
+    const missed = priority.filter(m => !trained.has(m));
+    if(missed.length === priority.length){
+      showToast(`Logged, but nothing for ${missed.join(' or ')} today`);
+    }
+  }
   finalizeSession(record);
 }
 
@@ -847,6 +887,7 @@ function renderHistory(){
 
 function render(){
   activeDay = Math.min(activeDay, currentPlan().days.length - 1);
+  renderRotationPrompt();
   renderEscalation();
   renderTierStrip();
   renderTabs();
@@ -1582,6 +1623,10 @@ function renderSettings(){
 
   document.getElementById('restInput').value = state.settings.restSeconds;
   document.getElementById('goalInput').value = state.settings.weeklyGoal;
+  document.getElementById('ceilingInput').value = state.settings.loadCeiling || '';
+  document.getElementById('rotationWeeksInput').value = state.settings.rotationWeeks || 0;
+  renderPriorityChips();
+  document.querySelector('label[data-unit-label="ceiling"]').textContent = `Heaviest weight available, ${WU()}`;
   document.getElementById('sessionTargetInput').value = state.settings.weeklySessionTarget || 3;
   document.getElementById('sessionFloorInput').value = state.settings.weeklySessionFloor || 0;
   document.getElementById('travelToggle').classList.toggle('on', !!state.settings.travelMode);
@@ -1674,6 +1719,56 @@ document.querySelectorAll('#coachSegControl .seg-btn').forEach(btn=>{
     renderHeaderQuote();
   };
 });
+
+const MUSCLE_CHOICES = ['legs','chest','back','shoulders','arms','core'];
+
+function renderPriorityChips(){
+  const el = document.getElementById('priorityChips');
+  if(!el) return;
+  const chosen = state.settings.priorityMuscles || [];
+  el.innerHTML = MUSCLE_CHOICES.map(m =>
+    `<button type="button" class="priority-chip ${chosen.includes(m) ? 'on' : ''}" data-m="${m}">${m}</button>`
+  ).join('');
+  el.querySelectorAll('.priority-chip').forEach(btn=>{
+    btn.onclick = ()=>{
+      const m = btn.dataset.m;
+      const list = state.settings.priorityMuscles || [];
+      const i = list.indexOf(m);
+      if(i === -1) list.push(m); else list.splice(i, 1);
+      state.settings.priorityMuscles = list;
+      saveState(state);
+      renderPriorityChips();
+      hapticLight();
+    };
+  });
+}
+
+const rotationDoneBtn = document.getElementById('rotationDoneBtn');
+if(rotationDoneBtn) rotationDoneBtn.onclick = ()=>{
+  state.settings.lastRotation = new Date().toISOString();
+  saveState(state);
+  renderRotationPrompt();
+  showToast('Rotation timer reset');
+};
+
+const ceilingInput = document.getElementById('ceilingInput');
+if(ceilingInput) ceilingInput.onchange = (e)=>{
+  const v = parseFloat(e.target.value);
+  state.settings.loadCeiling = (v > 0) ? v : 0;
+  e.target.value = state.settings.loadCeiling || '';
+  saveState(state);
+};
+
+const rotationWeeksInput = document.getElementById('rotationWeeksInput');
+if(rotationWeeksInput) rotationWeeksInput.onchange = (e)=>{
+  let v = parseInt(e.target.value);
+  if(isNaN(v) || v < 0) v = 0;
+  if(v > 26) v = 26;
+  state.settings.rotationWeeks = v;
+  e.target.value = v;
+  saveState(state);
+  renderRotationPrompt();
+};
 
 const tierAddBtn = document.getElementById('tierAddBtn');
 if(tierAddBtn) tierAddBtn.onclick = ()=>{

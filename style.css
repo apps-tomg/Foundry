@@ -279,6 +279,31 @@ select, .text-input{
 .photo-thumb .d{font-size:10px; color:var(--muted); margin-top:4px; font-family:var(--font-mono);}
 
 .settings-block{padding:0 18px; margin-bottom:22px;}
+.priority-tag{
+  margin-left:6px; font-size:9px; font-weight:800; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--accent); background:var(--accent-soft);
+  padding:2px 6px; border-radius:999px; vertical-align:middle;
+}
+.rotation-prompt{
+  margin:12px 20px 0; padding:12px 14px; border-radius:var(--radius-md);
+  background:var(--card); box-shadow:var(--shadow);
+}
+.rotation-text{font-size:12px; color:var(--text); line-height:1.4;}
+.rotation-done{
+  margin-top:8px; background:var(--card-2); border:none; color:var(--accent);
+  border-radius:999px; padding:8px 12px; font-size:11px; font-weight:700;
+  font-family:var(--font-ui); cursor:pointer;
+}
+.priority-block{padding:12px 0; border-bottom:1px solid var(--line);}
+.priority-label{font-size:11px; color:var(--muted); margin-bottom:8px; line-height:1.4;}
+.priority-chips{display:flex; flex-wrap:wrap; gap:6px;}
+.priority-chip{
+  background:var(--card-2); border:1.5px solid transparent; color:var(--muted);
+  border-radius:999px; padding:7px 13px; font-size:12px; font-weight:600;
+  font-family:var(--font-ui); cursor:pointer;
+}
+.priority-chip.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+
 .escalation{
   margin:12px 20px 0; padding:12px 14px; border-radius:var(--radius-md);
   background:var(--accent); color:#ffffff;

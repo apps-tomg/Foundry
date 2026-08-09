@@ -23,7 +23,8 @@ function defaultState(){
     soreFlags: {},
     circuitMode: {},
     settings: {
-      theme:'system', coachTone:'standard', weeklySessionTarget:3, weeklySessionFloor:2, travelMode:false, restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
+      theme:'system', coachTone:'standard', weeklySessionTarget:3, weeklySessionFloor:2, travelMode:false,
+      loadCeiling:0, priorityMuscles:[], rotationWeeks:7, lastRotation:null, restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
       progressionIncrement: 2, passcodeEnabled:false, passcodeHash: null, goalFocus:'muscle',
       units:'kg', displayName:'', shareStats:false, firstName:'', trainingDays:null
     }
@@ -282,6 +283,18 @@ function progressionSuggestion(state, exName, targetReps){
       const avgRpe = latestSets.reduce((a,x) => a + x.rpe, 0) / latestSets.length;
       if(avgRpe <= 7) return `Felt easy (RPE ${avgRpe.toFixed(1)}), jump to ${topSets[0].w + increment * 2}${WU()}`;
       if(avgRpe >= 9.5) return `RPE ${avgRpe.toFixed(1)} last time, stay at ${topSets[0].w}${WU()} and own the reps`;
+    }
+    const ceiling = state.settings.loadCeiling || 0;
+    if(ceiling && topSets[0].w >= ceiling){
+      const options = [
+        'a 3 second lowering phase',
+        'a 2 second pause at the hardest point',
+        'a single-limb version',
+        'shorter rests, around 45 seconds'
+      ];
+      // Rotates by week so it does not suggest the same thing indefinitely.
+      const pick = options[Math.floor(Date.now() / (7 * 86400000)) % options.length];
+      return `At your ${ceiling}${WU()} ceiling. Add difficulty, not load: try ${pick}`;
     }
     return `Try ${topSets[0].w + increment}${WU()} next session`;
   }
