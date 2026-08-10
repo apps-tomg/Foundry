@@ -105,6 +105,7 @@ function defaultState(){
       theme:'system', coachTone:'standard', weeklySessionTarget:3, weeklySessionFloor:2, travelMode:false,
       loadCeiling:0, priorityMuscles:[], rotationWeeks:7, lastRotation:null,
       budgetsOn:false, fibreRampStart:null, budgetSetAtWeight:null, targetWeight:null,
+      healthOn:false, healthSteps:true, healthWeight:false, healthBp:false, healthLastSync:null,
       budgets:{ kcal:0, protein:0, fat:0, carbs:0, fibre:0, alcoholUnits:0, waterMl:0, steps:0, creatineG:0 },
       restSeconds:60, weeklyGoal:0, handleWeight:2.5, notifyRest:false,
       progressionIncrement: 2, passcodeEnabled:false, passcodeHash: null, goalFocus:'muscle',

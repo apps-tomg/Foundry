@@ -229,6 +229,125 @@ function renderTargetCard(){
   `;
 }
 
+// ---------- Apple Health ----------
+// Read-only import of things already recorded elsewhere. Each field is a
+// separate opt-in, so someone can pull steps from their watch while still
+// typing calories by hand. Import is idempotent: running it twice changes
+// nothing, which matters because it also runs automatically on open.
+function healthTypesWanted(){
+  const s = state.settings;
+  const t = [];
+  if(s.healthSteps) t.push('steps');
+  if(s.healthWeight) t.push('weight');
+  if(s.healthBp) t.push('bloodPressure');
+  return t;
+}
+
+async function syncFromHealth(opts){
+  const quiet = opts && opts.quiet;
+  if(!state.settings.healthOn || !window.FoundryHealth) return;
+  const types = healthTypesWanted();
+  if(!types.length){ if(!quiet) showToast('Turn on at least one thing to import'); return; }
+  if(!await window.FoundryHealth.available()){
+    if(!quiet) showToast('Apple Health is not available on this device');
+    return;
+  }
+
+  let imported = [];
+
+  if(state.settings.healthSteps){
+    const days = await window.FoundryHealth.dailySteps(14);
+    let n = 0;
+    days.forEach(d => {
+      const key = dateKeyOf(d.startDate);
+      const value = Math.round(d.value || 0);
+      if(value <= 0) return;
+      const existing = intakeFor(key);
+      // Health is authoritative for steps, so overwrite rather than add.
+      if(!existing || (existing.steps || 0) !== value){
+        upsertIntake(key, { steps: value });
+        n++;
+      }
+    });
+    if(n) imported.push(`${n} day${n === 1 ? '' : 's'} of steps`);
+  }
+
+  if(state.settings.healthWeight){
+    const samples = await window.FoundryHealth.latestSamples('weight', 30, 30);
+    let n = 0;
+    samples.forEach(s => {
+      const key = dateKeyOf(s.startDate);
+      // One entry per day, and never replace something logged in Foundry.
+      const already = (state.bodyweights || []).some(b => dateKeyOf(b.date) === key);
+      if(already) return;
+      state.bodyweights.push({ date: new Date(s.startDate).toISOString(), kg: Math.round(s.value * 10) / 10 });
+      n++;
+    });
+    if(n){
+      state.bodyweights.sort((a,b) => new Date(a.date) - new Date(b.date));
+      saveState(state);
+      imported.push(`${n} weight entr${n === 1 ? 'y' : 'ies'}`);
+    }
+  }
+
+  if(state.settings.healthBp){
+    const samples = await window.FoundryHealth.latestSamples('bloodPressure', 365, 50);
+    let n = 0;
+    samples.forEach(s => {
+      if(!s.systolic || !s.diastolic) return;
+      const key = dateKeyOf(s.startDate);
+      const dupe = (state.healthChecks || []).some(h =>
+        h.kind === 'bp' && dateKeyOf(h.date) === key &&
+        h.systolic === Math.round(s.systolic) && h.diastolic === Math.round(s.diastolic));
+      if(dupe) return;
+      if(!state.healthChecks) state.healthChecks = [];
+      state.healthChecks.push({
+        date: new Date(s.startDate).toISOString(),
+        kind: 'bp',
+        systolic: Math.round(s.systolic),
+        diastolic: Math.round(s.diastolic),
+        notes: 'From Apple Health'
+      });
+      n++;
+    });
+    if(n){
+      state.healthChecks.sort((a,b) => new Date(b.date) - new Date(a.date));
+      saveState(state);
+      imported.push(`${n} blood pressure reading${n === 1 ? '' : 's'}`);
+    }
+  }
+
+  state.settings.healthLastSync = new Date().toISOString();
+  saveState(state);
+  renderHealthSyncNote();
+  if(currentView === 'body') renderBody();
+
+  if(!quiet){
+    showToast(imported.length ? `Imported ${imported.join(', ')}` : 'Nothing new to import');
+  }
+}
+
+function renderHealthSyncNote(){
+  const el = document.getElementById('healthSyncNote');
+  if(!el) return;
+  const last = state.settings.healthLastSync;
+  el.textContent = last
+    ? `Last checked ${new Date(last).toLocaleString([], { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}.`
+    : 'Not synced yet.';
+}
+
+function renderHealthSettingsUI(){
+  const toggle = document.getElementById('healthToggle');
+  if(!toggle) return;
+  const on = !!state.settings.healthOn;
+  toggle.classList.toggle('on', on);
+  document.getElementById('healthOptions').style.display = on ? 'block' : 'none';
+  document.getElementById('healthStepsToggle').classList.toggle('on', !!state.settings.healthSteps);
+  document.getElementById('healthWeightToggle').classList.toggle('on', !!state.settings.healthWeight);
+  document.getElementById('healthBpToggle').classList.toggle('on', !!state.settings.healthBp);
+  renderHealthSyncNote();
+}
+
 // ---------- Weekly budgets ----------
 // Off by default and entirely optional. Deliberately weekly-first: a heavy
 // Saturday is a withdrawal from a planned budget, not a failure, and daily
@@ -1118,6 +1237,19 @@ document.getElementById('circuitToggle').onclick = ()=>{
   renderDay();
 };
 
+// Set values live in the DOM until Log Session collects them, so anything that
+// rebuilds the day card mid-workout destroys them. This reports whether there
+// is work in progress worth protecting.
+function dayCardHasUnsavedSets(){
+  const card = document.getElementById('dayCard');
+  if(!card) return false;
+  return [...card.querySelectorAll('.set-row')].some(row=>{
+    const r = row.querySelector('.rIn');
+    const w = row.querySelector('.wIn');
+    return (r && r.value.trim() !== '') || (w && w.value.trim() !== '');
+  });
+}
+
 function logSession(){
   const day = currentPlan().days[activeDay];
   const card = document.getElementById('dayCard');
@@ -1205,6 +1337,9 @@ function applyBests(record){
 
 // Shared tail for both the normal log flow and guided mode.
 function finalizeSession(record){
+  // The card is about to be rebuilt anyway, so any deferred cloud pull is now
+  // safe to run.
+  if(typeof runDeferredPull === 'function') setTimeout(runDeferredPull, 600);
   const prs = applyBests(record);
   record.volume = sessionVolume(record);
   record.durationSeconds = currentSessionSeconds();
@@ -2006,6 +2141,7 @@ function renderTierLadderUI(){
 function renderSettings(){
   renderTierLadderUI();
   renderPhaseListUI();
+  renderHealthSettingsUI();
   document.getElementById('budgetsToggle').classList.toggle('on', budgetsOn());
   renderBudgetSettingsUI();
   const el = document.getElementById('planOptions');
@@ -2865,6 +3001,7 @@ function renderHeaderQuote(){
 
 function initApp(){
   setTimeout(()=>{ if(typeof pullStateFromCloud === 'function') pullStateFromCloud(); }, 400);
+  setTimeout(()=>{ if(state.settings.healthOn) syncFromHealth({ quiet: true }); }, 1800);
   // Monday-morning moment: surface last week's recap once per week, but never
   // over the welcome or onboarding overlays.
   setTimeout(()=>{

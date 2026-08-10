@@ -443,6 +443,29 @@
     <div id="tierLadderList"></div>
     <button class="row-tools-solo" id="tierAddBtn" type="button" style="width:100%;">+ Add Fallback</button>
 
+    <h3 class="section-h" style="margin-top:20px;">Apple Health</h3>
+    <div class="tier-ladder-hint">Reads figures you already record elsewhere so you don't type them twice. Read-only, Foundry never writes to Health. Calories and macros aren't available from Health, so those stay manual.</div>
+    <div class="field-row">
+      <label>Connect Apple Health</label>
+      <div class="toggle" id="healthToggle"><div class="knob"></div></div>
+    </div>
+    <div id="healthOptions" style="display:none;">
+      <div class="field-row">
+        <label>Steps</label>
+        <div class="toggle" id="healthStepsToggle"><div class="knob"></div></div>
+      </div>
+      <div class="field-row">
+        <label>Bodyweight</label>
+        <div class="toggle" id="healthWeightToggle"><div class="knob"></div></div>
+      </div>
+      <div class="field-row">
+        <label>Blood pressure</label>
+        <div class="toggle" id="healthBpToggle"><div class="knob"></div></div>
+      </div>
+      <button class="row-tools-solo" id="healthSyncBtn" type="button" style="width:100%; margin-top:10px;">Sync From Health Now</button>
+      <div class="budget-note" id="healthSyncNote"></div>
+    </div>
+
     <h3 class="section-h" style="margin-top:20px;">Weekly Budgets</h3>
     <div class="tier-ladder-hint">Optional. Tracks weekly totals for food, drink, water, steps, and supplements. Weekly, never daily, and nothing here scores you.</div>
     <div class="field-row">
@@ -693,5 +716,6 @@ create policy "update own" on foundry_leaderboard
 <script src="app.js"></script>
 <script src="sync.js"></script>
     <script src="notify-bridge.js"></script>
+    <script src="health-bridge.js"></script>
 </body>
 </html>

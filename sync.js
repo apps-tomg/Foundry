@@ -325,7 +325,16 @@ async function leaveChallenge(challengeId){
 }
 
 // Pull the cloud row and adopt it if it is newer than local state.
+let pullDeferred = false;
+
 async function pullStateFromCloud(){
+  // Refuse to clobber a session being typed. This was destroying logged sets
+  // whenever the app was backgrounded mid-workout, which is exactly when a
+  // rest timer is running.
+  if(typeof dayCardHasUnsavedSets === 'function' && dayCardHasUnsavedSets()){
+    pullDeferred = true;
+    return;
+  }
   if(!syncEnabled() || !navigator.onLine) return;
   try{
     const cfg = loadSyncCfg();
@@ -363,6 +372,12 @@ function scheduleSyncPush(){
   if(!syncEnabled()) return;
   clearTimeout(syncPushTimer);
   syncPushTimer = setTimeout(pushStateToCloud, 2500);
+}
+
+function runDeferredPull(){
+  if(!pullDeferred) return;
+  pullDeferred = false;
+  pullStateFromCloud();
 }
 
 // Pull whenever the app comes back to the foreground.
