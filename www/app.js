@@ -81,7 +81,18 @@ function defaultLadderSeed(){
 (function initSetupFieldSaving(){
   const card = document.getElementById('dayCard');
   if(!card) return;
+  // Any typing in a set row or note is written straight to the draft, debounced
+  // so a fast typist does not trigger a save per keystroke.
+  let draftTimer = null;
+  const queueCapture = ()=>{
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(captureDraft, 350);
+  };
+  card.addEventListener('input', (e)=>{
+    if(e.target.closest('.set-row') || e.target.closest('.note-field')) queueCapture();
+  });
   card.addEventListener('change', (e)=>{
+    if(e.target.closest('.rpe-select')) queueCapture();
     const input = e.target.closest('.setup-field');
     if(!input) return;
     const exName = input.dataset.ex;
@@ -862,7 +873,10 @@ function wireSetRows(wrap){
         const rIn = row.querySelector('.rIn');
         if(!wIn.value && wIn.dataset.ghostW) wIn.value = wIn.dataset.ghostW;
         if(!rIn.value && rIn.dataset.ghostR) rIn.value = rIn.dataset.ghostR;
+        captureDraft();
         handleSetChecked();
+      } else {
+        captureDraft();
       }
     };
   });
@@ -1223,6 +1237,8 @@ function renderDay(){
   finishBtn.textContent = 'Log Session';
   finishBtn.onclick = logSession;
   card.appendChild(finishBtn);
+
+  restoreDraft();
 }
 
 function renderCircuitToggle(){
@@ -1240,6 +1256,84 @@ document.getElementById('circuitToggle').onclick = ()=>{
 // Set values live in the DOM until Log Session collects them, so anything that
 // rebuilds the day card mid-workout destroys them. This reports whether there
 // is work in progress worth protecting.
+// ---------- In-progress set drafts ----------
+// Set values used to live only in the DOM, so anything that rebuilt the day
+// card destroyed them: adding an exercise, switching day tabs, downgrading a
+// tier, or a cloud pull arriving. They are now written to state as you type,
+// and restored after every render, so no re-render can lose a workout.
+//
+// Drafts are keyed per day and dated. A draft from a previous day is discarded
+// rather than resurrected, so yesterday's abandoned numbers never reappear.
+function draftKey(){ return dayKey(state.planKey, activeDay); }
+
+function captureDraft(){
+  const card = document.getElementById('dayCard');
+  if(!card) return;
+  const lifts = {};
+  card.querySelectorAll('.exercise').forEach(block=>{
+    const id = block.dataset.kind === 'base'
+      ? 'b' + block.dataset.baseidx
+      : 'c' + block.dataset.customid;
+    const sets = [...block.querySelectorAll('.set-row')].map(row=>({
+      w: row.querySelector('.wIn').value,
+      r: row.querySelector('.rIn').value,
+      rpe: row.querySelector('.rpe-select').value,
+      done: !!(row.querySelector('.check') && row.querySelector('.check').classList.contains('on'))
+    }));
+    const noteEl = block.querySelector('.note-field');
+    const entry = { sets, note: noteEl ? noteEl.value : '' };
+    // Only keep exercises with something actually entered.
+    if(sets.some(s => s.w || s.r || s.rpe || s.done) || entry.note) lifts[id] = entry;
+  });
+
+  if(!state.drafts) state.drafts = {};
+  const key = draftKey();
+  if(Object.keys(lifts).length === 0){
+    if(state.drafts[key]) { delete state.drafts[key]; saveState(state); }
+    return;
+  }
+  state.drafts[key] = { date: new Date().toISOString(), lifts };
+  saveState(state);
+}
+
+function restoreDraft(){
+  const card = document.getElementById('dayCard');
+  if(!card || !state.drafts) return;
+  const d = state.drafts[draftKey()];
+  if(!d) return;
+  // Same-day only. A stale draft is cleared rather than restored.
+  if(new Date(d.date).toDateString() !== new Date().toDateString()){
+    delete state.drafts[draftKey()];
+    saveState(state);
+    return;
+  }
+  card.querySelectorAll('.exercise').forEach(block=>{
+    const id = block.dataset.kind === 'base'
+      ? 'b' + block.dataset.baseidx
+      : 'c' + block.dataset.customid;
+    const entry = d.lifts[id];
+    if(!entry) return;
+    const rows = block.querySelectorAll('.set-row');
+    (entry.sets || []).forEach((s, i)=>{
+      const row = rows[i];
+      if(!row) return;
+      if(s.w) row.querySelector('.wIn').value = s.w;
+      if(s.r) row.querySelector('.rIn').value = s.r;
+      if(s.rpe) row.querySelector('.rpe-select').value = s.rpe;
+      if(s.done) row.querySelector('.check').classList.add('on');
+    });
+    const noteEl = block.querySelector('.note-field');
+    if(noteEl && entry.note) noteEl.value = entry.note;
+  });
+}
+
+function clearDraft(){
+  if(state.drafts && state.drafts[draftKey()]){
+    delete state.drafts[draftKey()];
+    saveState(state);
+  }
+}
+
 function dayCardHasUnsavedSets(){
   const card = document.getElementById('dayCard');
   if(!card) return false;
@@ -1337,6 +1431,7 @@ function applyBests(record){
 
 // Shared tail for both the normal log flow and guided mode.
 function finalizeSession(record){
+  clearDraft();
   // The card is about to be rebuilt anyway, so any deferred cloud pull is now
   // safe to run.
   if(typeof runDeferredPull === 'function') setTimeout(runDeferredPull, 600);
