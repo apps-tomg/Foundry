@@ -434,6 +434,14 @@ select, .text-input{
   line-height:1.4; font-family:var(--font-ui);
 }
 
+.set-tools{display:flex; gap:6px; margin:8px 0 4px;}
+.set-tool{
+  flex:1; background:var(--card-2); border:none; color:var(--muted);
+  border-radius:999px; padding:8px 6px; font-size:11px; font-weight:700;
+  font-family:var(--font-ui); cursor:pointer; white-space:nowrap;
+}
+.set-tool:active{opacity:0.6;}
+
 .setup-field{
   width:100%; box-sizing:border-box; margin:0 0 8px;
   background:var(--card-2); border:1.5px solid transparent; color:var(--text);

@@ -88,6 +88,28 @@ function defaultLadderSeed(){
     clearTimeout(draftTimer);
     draftTimer = setTimeout(captureDraft, 350);
   };
+  card.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.set-tool');
+    if(!btn) return;
+    const exId = btn.dataset.exid;
+    if(btn.dataset.act === 'plus') changeSetCount(exId, 1);
+    else if(btn.dataset.act === 'minus') changeSetCount(exId, -1);
+    else if(btn.dataset.act === 'fill') fillDownSets(exId);
+  });
+
+  // Enter advances to the next weight or reps field, so an exercise can be
+  // filled in without tapping between every box.
+  card.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter') return;
+    const input = e.target.closest('.wIn, .rIn');
+    if(!input) return;
+    e.preventDefault();
+    const fields = [...card.querySelectorAll('.wIn, .rIn')];
+    const next = fields[fields.indexOf(input) + 1];
+    if(next) next.focus();
+    else input.blur();
+  });
+
   card.addEventListener('input', (e)=>{
     if(e.target.closest('.set-row') || e.target.closest('.note-field')) queueCapture();
   });
@@ -831,6 +853,59 @@ function buildInfoPanelHTML(name){
   return `${musclesLine}<ol class="info-steps">${steps}</ol><p class="info-tip"><strong>Tip:</strong> ${info.tip}</p>`;
 }
 
+// Per-exercise set count, changeable mid-workout. Keyed by day and exercise so
+// adding a fourth set to one movement leaves everything else alone.
+function setCountKey(exId){ return dayKey(state.planKey, activeDay) + '|' + exId; }
+
+function storedSetCount(exId, fallback){
+  const v = (state.setCounts || {})[setCountKey(exId)];
+  return (v && v > 0) ? v : fallback;
+}
+
+function changeSetCount(exId, delta){
+  const card = document.getElementById('dayCard');
+  const block = card && card.querySelector('.exercise[data-exid="' + exId + '"]');
+  const current = block ? block.querySelectorAll('.set-row').length : 3;
+  const next = Math.max(1, Math.min(10, current + delta));
+  if(next === current) return;
+  // Capture first, so anything already typed survives the rebuild.
+  captureDraft();
+  if(!state.setCounts) state.setCounts = {};
+  state.setCounts[setCountKey(exId)] = next;
+  saveState(state);
+  hapticLight();
+  renderDay();
+}
+
+// Copies set one across the rest, which is what most people do by hand when the
+// weight is not changing between sets.
+function fillDownSets(exId){
+  const card = document.getElementById('dayCard');
+  const block = card && card.querySelector('.exercise[data-exid="' + exId + '"]');
+  if(!block) return;
+  const rows = [...block.querySelectorAll('.set-row')];
+  if(rows.length < 2) return;
+  const first = rows[0];
+  const w = first.querySelector('.wIn').value || first.querySelector('.wIn').dataset.ghostW || '';
+  const r = first.querySelector('.rIn').value || first.querySelector('.rIn').dataset.ghostR || '';
+  if(!w && !r){ showToast('Fill in set 1 first'); return; }
+  rows.slice(1).forEach(row=>{
+    if(w) row.querySelector('.wIn').value = w;
+    if(r) row.querySelector('.rIn').value = r;
+  });
+  captureDraft();
+  hapticLight();
+  showToast('Copied to all sets');
+}
+
+function setToolsHTML(exId){
+  return '<div class="set-tools">' +
+    '<button class="set-tool" type="button" data-act="minus" data-exid="' + exId + '">&minus; Set</button>' +
+    '<button class="set-tool" type="button" data-act="plus" data-exid="' + exId + '">+ Set</button>' +
+    '<button class="set-tool" type="button" data-act="fill" data-exid="' + exId + '">Copy set 1 to all</button>' +
+    '</div>';
+}
+
 function buildSetRowsHTML(setCount, ghosts, exName){
   const isBw = typeof BODYWEIGHT_EXERCISES !== 'undefined' && BODYWEIGHT_EXERCISES.has(exName);
   let html = '';
@@ -843,9 +918,9 @@ function buildSetRowsHTML(setCount, ghosts, exName){
     html += `
       <div class="set-row${isBw ? ' bw' : ''}">
         <div class="set-tag">S${s+1}</div>
-        <input type="number" inputmode="decimal" placeholder="${wPh}" class="wIn" ${g && g.w ? `data-ghost-w="${g.w}"` : ''} ${isBw ? 'data-bw="1"' : ''}>
+        <input type="number" inputmode="decimal" enterkeyhint="next" placeholder="${wPh}" class="wIn" ${g && g.w ? `data-ghost-w="${g.w}"` : ''} ${isBw ? 'data-bw="1"' : ''}>
         <span class="x">x</span>
-        <input type="number" inputmode="numeric" placeholder="${g ? g.r : 'reps'}" class="rIn" ${g ? `data-ghost-r="${g.r}"` : ''}>
+        <input type="number" inputmode="numeric" enterkeyhint="next" placeholder="${g ? g.r : 'reps'}" class="rIn" ${g ? `data-ghost-r="${g.r}"` : ''}>
         <select class="rpe-select">
           <option value="">RPE</option>
           <option value="6">6</option>
@@ -970,12 +1045,14 @@ function renderDay(){
     const baseEx = day.exercises[baseIdx];
     const effective = getEffectiveExercise(state, state.planKey, activeDay, baseIdx, baseEx);
     const parsed = parseTarget(effective.target) || { sets: 3, reps: 10 };
-    const setCount = adjustedSetCount(state, parsed.sets);
+    const exId = "b" + baseIdx;
+    const setCount = storedSetCount(exId, adjustedSetCount(state, parsed.sets));
     const targetReps = parsed.reps;
     const wrap = document.createElement('div');
     wrap.className = 'exercise';
     wrap.dataset.kind = 'base';
     wrap.dataset.baseidx = baseIdx;
+    wrap.dataset.exid = exId;
 
     const best = state.bests[effective.name];
     const trend = lastVsPrevDelta(state, effective.name);
@@ -1003,6 +1080,7 @@ function renderDay(){
              placeholder="Setup: pin, seat, notch" maxlength="60"
              value="${((state.machineSetups || {})[effective.name] || '').replace(/"/g,'&quot;')}">`}
       <div class="sets">${buildSetRowsHTML(setCount, lastSessionSets(state, effective.name), effective.name)}</div>
+      ${setToolsHTML(exId)}
       <textarea class="note-field" placeholder="Notes, form cues, how it felt"></textarea>
       <div class="row-tools">
         <button class="history-btn">History</button>
@@ -1092,11 +1170,13 @@ function renderDay(){
   });
 
   getCustomExercises(state, state.planKey, activeDay).forEach(ex=>{
-    const setCount = adjustedSetCount(state, (parseTarget(ex.target) || { sets: 3 }).sets);
+    const exId = "c" + ex.id;
+    const setCount = storedSetCount(exId, adjustedSetCount(state, (parseTarget(ex.target) || { sets: 3 }).sets));
     const wrap = document.createElement('div');
     wrap.className = 'exercise';
     wrap.dataset.kind = 'custom';
     wrap.dataset.customid = ex.id;
+    wrap.dataset.exid = exId;
     const best = state.bests[ex.name];
     wrap.innerHTML = `
       <div class="ex-head-row">
@@ -1112,6 +1192,7 @@ function renderDay(){
              placeholder="Setup: pin, seat, notch" maxlength="60"
              value="${((state.machineSetups || {})[ex.name] || '').replace(/"/g,'&quot;')}">
       <div class="sets">${buildSetRowsHTML(setCount, lastSessionSets(state, ex.name), ex.name)}</div>
+      ${setToolsHTML(exId)}
       <textarea class="note-field" placeholder="Notes, form cues, how it felt"></textarea>
       <div class="row-tools">
         <button class="history-btn">History</button>
