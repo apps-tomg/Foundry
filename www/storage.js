@@ -99,6 +99,7 @@ function defaultState(){
     machineSetups: {},
     drafts: {},
     setCounts: {},
+    hiddenExercises: {},
     program: null,
     lastRecapWeek: null,
     soreFlags: {},
@@ -146,6 +147,7 @@ function loadState(){
       merged.machineSetups = parsed.machineSetups || {};
       merged.drafts = parsed.drafts || {};
       merged.setCounts = parsed.setCounts || {};
+      merged.hiddenExercises = parsed.hiddenExercises || {};
       merged.soreFlags = parsed.soreFlags || {};
       merged.circuitMode = parsed.circuitMode || {};
       merged.cardioSessions = parsed.cardioSessions || [];

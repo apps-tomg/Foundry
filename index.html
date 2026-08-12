@@ -125,6 +125,27 @@
   </div>
 </div>
 
+<div class="num-pad" id="numPad">
+  <div class="num-pad-grid">
+    <button type="button" data-k="1">1</button>
+    <button type="button" data-k="2">2</button>
+    <button type="button" data-k="3">3</button>
+    <button type="button" data-k="4">4</button>
+    <button type="button" data-k="5">5</button>
+    <button type="button" data-k="6">6</button>
+    <button type="button" data-k="7">7</button>
+    <button type="button" data-k="8">8</button>
+    <button type="button" data-k="9">9</button>
+    <button type="button" data-k=".">.</button>
+    <button type="button" data-k="0">0</button>
+    <button type="button" data-k="del" class="pad-del">&#9003;</button>
+  </div>
+  <div class="num-pad-actions">
+    <button type="button" id="padDone" class="pad-done">Done</button>
+    <button type="button" data-k="next" class="pad-next">Next</button>
+  </div>
+</div>
+
 <div class="page-overlay" id="intakeOverlay">
   <button class="guided-close" id="intakeClose" aria-label="Close">&times;</button>
   <h2 class="friends-page-title">Log Intake</h2>
@@ -435,6 +456,7 @@
       <div class="day-chips-hint">Drives your plan, calendar, and streak. Rest days never break the streak.</div>
     </div>
     <label class="schedule-label" style="margin-top:14px; display:block;">What do you follow?</label>
+    <div class="tier-ladder-hint">Pick a template below, or build your own from scratch with the button underneath.</div>
     <div id="planOptions"></div>
     <div class="plan-cycle-hint" id="planCycleHint" style="display:none;"></div>
 

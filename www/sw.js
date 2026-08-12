@@ -1,4 +1,4 @@
-const CACHE_VERSION = "foundry-v23";
+const CACHE_VERSION = "foundry-v24";
 const APP_SHELL = [
   "./",
   "./index.html",

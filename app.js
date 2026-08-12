@@ -78,6 +78,22 @@ function defaultLadderSeed(){
 
 // Machine setup recall. A pin number is what makes a machine session
 // repeatable, so it persists per exercise name and prefills next time.
+(function initKeypad(){
+  const pad = document.getElementById('numPad');
+  if(!pad) return;
+  pad.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-k]');
+    if(btn){ padPress(btn.dataset.k); return; }
+    if(e.target.closest('#padDone')) closeKeypad();
+  });
+  // Tapping anywhere that is not a set field or the pad closes it.
+  document.addEventListener('click', (e)=>{
+    if(!padTarget) return;
+    if(e.target.closest('#numPad') || e.target.closest('.wIn, .rIn')) return;
+    closeKeypad();
+  });
+})();
+
 (function initSetupFieldSaving(){
   const card = document.getElementById('dayCard');
   if(!card) return;
@@ -88,6 +104,11 @@ function defaultLadderSeed(){
     clearTimeout(draftTimer);
     draftTimer = setTimeout(captureDraft, 350);
   };
+  card.addEventListener('focusin', (e)=>{
+    const input = e.target.closest('.wIn, .rIn');
+    if(input) openKeypad(input);
+  });
+
   card.addEventListener('click', (e)=>{
     const btn = e.target.closest('.set-tool');
     if(!btn) return;
@@ -855,6 +876,27 @@ function buildInfoPanelHTML(name){
 
 // Per-exercise set count, changeable mid-workout. Keyed by day and exercise so
 // adding a fourth set to one movement leaves everything else alone.
+function hiddenKey(baseIdx){ return dayKey(state.planKey, activeDay) + '|' + baseIdx; }
+
+function isExerciseHidden(baseIdx){
+  return !!(state.hiddenExercises || {})[hiddenKey(baseIdx)];
+}
+
+function setExerciseHidden(baseIdx, hidden){
+  if(!state.hiddenExercises) state.hiddenExercises = {};
+  captureDraft();
+  if(hidden) state.hiddenExercises[hiddenKey(baseIdx)] = true;
+  else delete state.hiddenExercises[hiddenKey(baseIdx)];
+  saveState(state);
+  hapticLight();
+  renderDay();
+}
+
+function hiddenCountToday(){
+  const prefix = dayKey(state.planKey, activeDay) + '|';
+  return Object.keys(state.hiddenExercises || {}).filter(k => k.startsWith(prefix)).length;
+}
+
 function setCountKey(exId){ return dayKey(state.planKey, activeDay) + '|' + exId; }
 
 function storedSetCount(exId, fallback){
@@ -898,6 +940,55 @@ function fillDownSets(exId){
   showToast('Copied to all sets');
 }
 
+// The iOS numeric keyboard cannot be trimmed, so set fields use a purpose-built
+// pad instead: digits, a decimal point, delete, and next. Inputs are readonly to
+// stop the system keyboard appearing, but stay focusable so the caret shows.
+let padTarget = null;
+
+function openKeypad(input){
+  padTarget = input;
+  const pad = document.getElementById('numPad');
+  if(!pad) return;
+  document.querySelectorAll('.set-row input').forEach(i => i.classList.remove('pad-active'));
+  input.classList.add('pad-active');
+  pad.classList.add('show');
+  document.body.classList.add('pad-open');
+  // Keep the field clear of the pad.
+  setTimeout(()=> input.scrollIntoView({ block:'center', behavior:'smooth' }), 60);
+}
+
+function closeKeypad(){
+  const pad = document.getElementById('numPad');
+  if(pad) pad.classList.remove('show');
+  document.body.classList.remove('pad-open');
+  document.querySelectorAll('.set-row input').forEach(i => i.classList.remove('pad-active'));
+  if(padTarget) captureDraft();
+  padTarget = null;
+}
+
+function padPress(key){
+  if(!padTarget) return;
+  if(key === 'del'){
+    padTarget.value = String(padTarget.value).slice(0, -1);
+  } else if(key === 'next'){
+    const card = document.getElementById('dayCard');
+    const fields = [...card.querySelectorAll('.wIn, .rIn')];
+    const next = fields[fields.indexOf(padTarget) + 1];
+    captureDraft();
+    if(next) openKeypad(next);
+    else closeKeypad();
+    return;
+  } else if(key === '.'){
+    // Reps are whole numbers, and a second point is never valid.
+    if(padTarget.classList.contains('rIn')) return;
+    if(String(padTarget.value).includes('.')) return;
+    padTarget.value = String(padTarget.value) + '.';
+  } else {
+    padTarget.value = String(padTarget.value) + key;
+  }
+  hapticLight();
+}
+
 function setToolsHTML(exId){
   return '<div class="set-tools">' +
     '<button class="set-tool" type="button" data-act="minus" data-exid="' + exId + '">&minus; Set</button>' +
@@ -918,9 +1009,9 @@ function buildSetRowsHTML(setCount, ghosts, exName){
     html += `
       <div class="set-row${isBw ? ' bw' : ''}">
         <div class="set-tag">S${s+1}</div>
-        <input type="number" inputmode="decimal" enterkeyhint="next" placeholder="${wPh}" class="wIn" ${g && g.w ? `data-ghost-w="${g.w}"` : ''} ${isBw ? 'data-bw="1"' : ''}>
+        <input type="number" inputmode="none" readonly placeholder="${wPh}" class="wIn" ${g && g.w ? `data-ghost-w="${g.w}"` : ''} ${isBw ? 'data-bw="1"' : ''}>
         <span class="x">x</span>
-        <input type="number" inputmode="numeric" enterkeyhint="next" placeholder="${g ? g.r : 'reps'}" class="rIn" ${g ? `data-ghost-r="${g.r}"` : ''}>
+        <input type="number" inputmode="none" readonly placeholder="${g ? g.r : 'reps'}" class="rIn" ${g ? `data-ghost-r="${g.r}"` : ''}>
         <select class="rpe-select">
           <option value="">RPE</option>
           <option value="6">6</option>
@@ -1045,6 +1136,7 @@ function renderDay(){
     const baseEx = day.exercises[baseIdx];
     const effective = getEffectiveExercise(state, state.planKey, activeDay, baseIdx, baseEx);
     const parsed = parseTarget(effective.target) || { sets: 3, reps: 10 };
+    if(isExerciseHidden(baseIdx)) return;
     const exId = "b" + baseIdx;
     const setCount = storedSetCount(exId, adjustedSetCount(state, parsed.sets));
     const targetReps = parsed.reps;
@@ -1088,6 +1180,7 @@ function renderDay(){
           ? (progressionChainFor(effective.name) ? '<button class="prog-btn">Progression</button>' : '')
           : '<button class="plate-btn">Plate Calculator</button><button class="warmup-btn">Ramp Sets</button>'}
         ${subs.length ? `<button class="swap-btn">Swap Exercise</button>` : ''}
+        <button class="remove-ex-btn">Remove</button>
         ${subs.length ? `<button class="sore-btn ${isSore ? 'active' : ''}">${isSore ? 'Clear Sore' : 'Mark Sore'}</button>` : ''}
       </div>
       <div class="history-panel"></div>
@@ -1137,6 +1230,10 @@ function renderDay(){
       };
     });
 
+    wrap.querySelector('.remove-ex-btn').onclick = ()=>{
+      setExerciseHidden(baseIdx, true);
+      showToast('Removed for this day. Restore it at the bottom of the list.');
+    };
     const swapBtn = wrap.querySelector('.swap-btn');
     if(swapBtn) swapBtn.onclick = ()=> wrap.querySelector('.swap-list').classList.toggle('show');
     wrap.querySelectorAll('.swap-item').forEach(item=>{
@@ -1311,6 +1408,23 @@ function renderDay(){
     circuitBtn.textContent = 'Start Round Rest';
     circuitBtn.onclick = startRestTimer;
     card.appendChild(circuitBtn);
+  }
+
+  const hiddenN = hiddenCountToday();
+  if(hiddenN){
+    const restore = document.createElement('button');
+    restore.className = 'restore-hidden-btn';
+    restore.type = 'button';
+    restore.textContent = `Restore ${hiddenN} removed exercise${hiddenN === 1 ? '' : 's'}`;
+    restore.onclick = ()=>{
+      const prefix = dayKey(state.planKey, activeDay) + '|';
+      Object.keys(state.hiddenExercises).forEach(k => { if(k.startsWith(prefix)) delete state.hiddenExercises[k]; });
+      captureDraft();
+      saveState(state);
+      hapticLight();
+      renderDay();
+    };
+    card.appendChild(restore);
   }
 
   const finishBtn = document.createElement('button');
