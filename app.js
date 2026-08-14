@@ -1748,15 +1748,41 @@ function renderHistory(){
 
 function render(){
   activeDay = Math.min(activeDay, currentPlan().days.length - 1);
-  renderRotationPrompt();
-  renderEscalation();
   renderTierStrip();
   renderTabs();
+  renderDayPreview();
   renderCircuitToggle();
   renderDay();
-  renderStats();
   renderHistory();
   renderSessionTimer();
+  refreshWarmupLaunch();
+}
+
+// Compact read-only list of the day's exercises: names and targets only, no set
+// rows. Setting exercises up in advance is the user's job, so this is a glance
+// at what's coming, not a place to work.
+function renderDayPreview(){
+  const el = document.getElementById('dayPreview');
+  if(!el) return;
+  const day = currentPlan().days[activeDay];
+  const order = getDayOrder(state, state.planKey, activeDay, day.exercises.length);
+  const rows = [];
+  order.forEach(baseIdx => {
+    if(typeof isExerciseHidden === 'function' && isExerciseHidden(baseIdx)) return;
+    const eff = getEffectiveExercise(state, state.planKey, activeDay, baseIdx, day.exercises[baseIdx]);
+    rows.push({ name: eff.name, target: eff.target });
+  });
+  getCustomExercises(state, state.planKey, activeDay).forEach(ex => rows.push({ name: ex.name, target: ex.target }));
+
+  if(!rows.length){
+    el.innerHTML = '<div class="day-preview-empty">No exercises on this day. Add some in Settings, or on the list view below.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(r => `
+    <div class="day-preview-row">
+      <span class="day-preview-name">${escHtml(r.name)}</span>
+      <span class="day-preview-target num">${escHtml(r.target || '')}</span>
+    </div>`).join('');
 }
 
 // ---------- View switching ----------
@@ -1950,6 +1976,9 @@ function renderCardioHistory(){
 
 function renderProgress(){
   renderPhaseCard();
+  renderRotationPrompt();
+  renderEscalation();
+  renderFloorNote(state.sessions.filter(s => isoWeekKey(s.date) === isoWeekKey(new Date().toISOString())).length);
   renderDeloadBanner();
   renderProgressStats();
   renderInsights();
@@ -3735,7 +3764,15 @@ function renderGuidedRest(){
   }
 }
 
-document.getElementById('guidedStartBtn').onclick = startGuided;
+document.getElementById('startSessionBtn').onclick = startGuided;
+
+document.getElementById('listLogLink').onclick = ()=>{
+  const wrap = document.getElementById('listLogWrap');
+  const showing = wrap.style.display !== 'none';
+  wrap.style.display = showing ? 'none' : 'block';
+  document.getElementById('listLogLink').textContent = showing ? 'Log as a list instead' : 'Hide list view';
+  if(!showing) wrap.scrollIntoView({ behavior:'smooth', block:'start' });
+};
 document.getElementById('guidedClose').onclick = ()=>{
   if(guided && Object.keys(guided.lifts).length){
     if(confirm('Finish and log what you\'ve done so far?')) stopGuided(true);

@@ -242,40 +242,33 @@
 </div>
 
 <div id="logView">
-  <div id="prBanner"></div>
   <div class="tier-strip" id="tierStrip" style="display:none;">
     <span class="tier-label">Today</span>
     <span class="tier-current" id="tierCurrent"></span>
     <button class="tier-downgrade" id="tierDowngradeBtn" type="button"></button>
   </div>
-  <div class="program-strip" id="programStrip" style="display:none;">
-    <span class="program-chip" id="programChip"></span>
-  </div>
-  <div class="rotation-prompt" id="rotationPrompt" style="display:none;">
-    <div class="rotation-text" id="rotationText"></div>
-    <button class="rotation-done" id="rotationDoneBtn" type="button">Rotated, reset the timer</button>
-  </div>
-  <div class="escalation" id="escalationBanner" style="display:none;">
-    <div class="escalation-text" id="escalationText"></div>
-    <button class="escalation-action" id="escalationDowngrade" type="button">Do the shorter version</button>
-  </div>
-  <div class="floor-note" id="floorNote" style="display:none;"></div>
   <div class="daytabs" id="daytabs"><div class="seg-pill" id="daytabsPill"></div></div>
-  <div class="program-note" id="programNote" style="display:none;"></div>
+  <div class="day-preview" id="dayPreview"></div>
   <button class="warmup-launch" id="warmupLaunchBtn">Guided Warm-Up &middot; <span id="warmupMins" class="num">4</span> min</button>
-  <div class="session-timer" id="sessionTimer">
-    <div>
-      <div class="st-time num" id="stTime">00:00</div>
-      <div class="st-target" id="stTarget"></div>
-    </div>
-    <button id="guidedStartBtn" class="guided-btn">Guided</button>
+  <button class="start-session-btn" id="startSessionBtn">Start Session</button>
+  <button class="list-log-link" id="listLogLink" type="button">Log as a list instead</button>
+
+  <!-- List logging, kept as a fallback. Hidden until asked for. -->
+  <div id="listLogWrap" style="display:none;">
+    <div class="session-timer" id="sessionTimer">
+      <div>
+        <div class="st-time num" id="stTime">00:00</div>
+        <div class="st-target" id="stTarget"></div>
+      </div>
       <button id="stToggle">Start</button>
+    </div>
+    <div class="circuit-toggle">
+      <span class="label">Circuit mode, one shared rest per round</span>
+      <div class="toggle" id="circuitToggle"><div class="knob"></div></div>
+    </div>
+    <main><div class="card" id="dayCard"></div></main>
   </div>
-  <div class="circuit-toggle">
-    <span class="label">Circuit mode, one shared rest per round</span>
-    <div class="toggle" id="circuitToggle"><div class="knob"></div></div>
-  </div>
-  <main><div class="card" id="dayCard"></div></main>
+
   <div class="hist">
     <h2>Recent Sessions</h2>
     <div id="histList"></div>
@@ -318,6 +311,20 @@
 </div>
 
 <div id="progressView" style="display:none;">
+  <div id="prBanner"></div>
+  <div class="escalation" id="escalationBanner" style="display:none;">
+    <div class="escalation-text" id="escalationText"></div>
+    <button class="escalation-action" id="escalationDowngrade" type="button">Do the shorter version</button>
+  </div>
+  <div class="floor-note" id="floorNote" style="display:none;"></div>
+  <div class="rotation-prompt" id="rotationPrompt" style="display:none;">
+    <div class="rotation-text" id="rotationText"></div>
+    <button class="rotation-done" id="rotationDoneBtn" type="button">Rotated, reset the timer</button>
+  </div>
+  <div class="program-strip" id="programStrip" style="display:none;">
+    <span class="program-chip" id="programChip"></span>
+  </div>
+  <div class="program-note" id="programNote" style="display:none;"></div>
   <div class="phase-card" id="phaseCard" style="display:none;"></div>
   <div id="deloadBanner"></div>
 
